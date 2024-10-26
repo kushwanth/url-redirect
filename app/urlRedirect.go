@@ -34,7 +34,7 @@ func main() {
 	operationsRouter.Post("/destinationExists", redirectExists(dbpool))
 	router.Use(middleware.Logger)
 	router.Use(middleware.AllowContentType("application/json"))
-	router.Use(middleware.Heartbeat("/api/health"))
+	router.Use(middleware.Heartbeat("/app/health"))
 	router.Get("/notfound", notFound)
 	router.Get("/about", about)
 	router.Get("/*", handleRedirect(dbpool))

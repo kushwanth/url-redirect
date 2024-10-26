@@ -41,7 +41,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         upload-artifact: url-redirect-cli.tar.gz
-        tag: ${{ github.ref }}
+        tag: 'latest' #${{ github.ref }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

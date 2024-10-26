@@ -45,6 +45,6 @@ func main() {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write([]byte(errorMessage))
 	})
-	log.Println("Sever running at Port 8081")
-	log.Fatal(http.ListenAndServe("127.0.0.1:8081", router))
+	log.Println("Sever running at Port 8082")
+	log.Fatal(http.ListenAndServe("127.0.0.1:8082", router))
 }

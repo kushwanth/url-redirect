@@ -90,7 +90,7 @@ func redirectExists(db *pgxpool.Pool) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		var responseData Redirect
-		db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE url=$1 AND inactive=$2 LIMIT $3", requestData.Data, true, dbLimit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+		db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE url=$1 LIMIT $2", requestData.Data, dbLimit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 		if db_err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			response.Message = dbError

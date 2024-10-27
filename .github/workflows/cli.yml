@@ -19,20 +19,17 @@ jobs:
       with:
         go-version: '1.23'  # Specify the Go version
 
-    - name: Building CLI Binary
+    - name: Building and Archive CLI Binary
       run: |
         cd cli/
         go mod tidy
         go build -o redirector .
+        tar -czvf redirector.tar.gz redirector 
 
-    - name: Archive binary
-      run: tar -czvf redirector.tar.gz cli/redirector
-
-    - name: Upload Release Asset
-      uses: softprops/action-gh-release@v1
-      with:
-        upload-artifact: redirector.tar.gz
-        tag: ${{ github.ref }}
+    - name: Create Release Asset
       env:
         GITHUB_TOKEN: ${{ secrets.CI_TOKEN }}
+      run: |
+          cd cli/
+          gh release create ${GITHUB_REF##*/} redirector.tar.gz
 

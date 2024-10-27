@@ -12,7 +12,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "redirector",
 		Usage:                "Interact with URL Redirect API",
-		Version:              "v1.0",
+		Version:              "v1.2",
 		Compiled:             time.Now(),
 		EnableBashCompletion: true,
 		Authors: []*cli.Author{

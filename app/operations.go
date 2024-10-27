@@ -16,7 +16,7 @@ func listall(db *pgxpool.Pool) http.HandlerFunc {
 		var response ResponseMessage
 		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 		min, max := page, page+pageLimit
-		rows, db_err := db.Query(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM redirects where id>$1 AND id<=$2 LIMIT $3", min, max, pageLimit)
+		rows, db_err := db.Query(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects where id>$1 AND id<=$2 LIMIT $3", min, max, pageLimit)
 		if db_err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			response.Message = dbError
@@ -54,7 +54,7 @@ func searchPath(db *pgxpool.Pool) http.HandlerFunc {
 		var responseData []Redirect
 		pathMatchPattern := "%" + requestData.Data + "%"
 		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-		rows, db_err := db.Query(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM redirects WHERE path ILIKE $1 AND inactive=$2 LIMIT $3 OFFSET $4", pathMatchPattern, false, pageLimit, page)
+		rows, db_err := db.Query(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE path ILIKE $1 AND inactive=$2 LIMIT $3 OFFSET $4", pathMatchPattern, false, pageLimit, page)
 		if db_err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			response.Message = dbError
@@ -90,7 +90,7 @@ func redirectExists(db *pgxpool.Pool) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		var responseData Redirect
-		db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM redirects WHERE url=$1 AND inactive=$2 LIMIT $3", requestData.Data, true, dbLimit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+		db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE url=$1 AND inactive=$2 LIMIT $3", requestData.Data, true, dbLimit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 		if db_err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			response.Message = dbError

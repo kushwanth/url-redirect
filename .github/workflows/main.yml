@@ -15,7 +15,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: '1.21'  # Specify the Go version
+        go-version: '1.23'  # Specify the Go version
 
     - name: Checking GitHub Container Registry Log in
       run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -37,11 +37,11 @@ jobs:
     - name: Archive binary
       run: tar -czvf url-redirect-cli.tar.gz cli/url-redirect-cli
 
-    - name: Upload Release Asset
-      uses: softprops/action-gh-release@v1
-      with:
-        upload-artifact: url-redirect-cli.tar.gz
-        tag: 'latest' #${{ github.ref }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Upload Release Asset
+    #   uses: softprops/action-gh-release@v1
+    #   with:
+    #     upload-artifact: url-redirect-cli.tar.gz
+    #     tag: ${{ github.ref }}
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

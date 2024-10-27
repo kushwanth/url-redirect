@@ -21,6 +21,14 @@ const dbLimit = 1
 const pageLimit = 10
 const httpsProtocol = "https://"
 
+const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
+    id SERIAL PRIMARY KEY,
+    path VARCHAR(10) NOT NULL UNIQUE,
+    url VARCHAR(100) NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT now(),
+    inactive BOOLEAN NOT NULL DEFAULT FALSE
+);`
+
 var WebsiteUrl string = os.Getenv("WebsiteUrl")
 
 type ResponseMessage struct {

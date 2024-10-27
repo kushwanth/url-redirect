@@ -14,7 +14,7 @@ import (
 
 func queryDB(path string, limit int, status bool, db *pgxpool.Pool) (Redirect, error) {
 	var responseData Redirect
-	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM redirects WHERE path=$1 AND inactive=$2 LIMIT $3", path, status, limit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE path=$1 AND inactive=$2 LIMIT $3", path, status, limit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 	if db_err != nil {
 		return responseData, errors.New("Database Error")
 	}
@@ -23,7 +23,7 @@ func queryDB(path string, limit int, status bool, db *pgxpool.Pool) (Redirect, e
 
 func queryDbWithId(id int, limit int, status bool, db *pgxpool.Pool) (Redirect, error) {
 	var responseData Redirect
-	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM redirects WHERE id=$1 AND inactive=$2 LIMIT $3", id, status, limit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE id=$1 AND inactive=$2 LIMIT $3", id, status, limit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 	if db_err != nil {
 		return responseData, errors.New("Database Error")
 	}
@@ -113,7 +113,7 @@ func addRedirect(db *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		var responseData Redirect
-		db_err := db.QueryRow(context.Background(), "INSERT INTO redirects (path, url, updated_at) VALUES ($1,$2,now()) RETURNING id, path, url, updated_at::TEXT, inactive", validPath, validUrl).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+		db_err := db.QueryRow(context.Background(), "INSERT INTO UrlRedirects (path, url, updated_at) VALUES ($1,$2,now()) RETURNING id, path, url, updated_at::TEXT, inactive", validPath, validUrl).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 		if db_err != nil {
 			_, duplicateErr := queryDB(validPath, dbLimit, false, db)
 			if duplicateErr == nil {
@@ -155,7 +155,7 @@ func patchRedirect(db *pgxpool.Pool) http.HandlerFunc {
 			w.Write(toJson(response))
 			return
 		}
-		db_err := db.QueryRow(context.Background(), "UPDATE redirects SET url=$1, updated_at=now() WHERE id=$2 RETURNING id, path, url, updated_at::TEXT, inactive", validUrl, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+		db_err := db.QueryRow(context.Background(), "UPDATE UrlRedirects SET url=$1, updated_at=now() WHERE id=$2 RETURNING id, path, url, updated_at::TEXT, inactive", validUrl, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 		if db_err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			response.Message = internalError
@@ -199,7 +199,7 @@ func updateRedirect(db *pgxpool.Pool) http.HandlerFunc {
 			w.Write(toJson(response))
 			return
 		}
-		db_err := db.QueryRow(context.Background(), "UPDATE redirects SET url=$1, updated_at=now() WHERE id=$2 RETURNING id, path, url, updated_at::TEXT, inactive", validUrl, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+		db_err := db.QueryRow(context.Background(), "UPDATE UrlRedirects SET url=$1, updated_at=now() WHERE id=$2 RETURNING id, path, url, updated_at::TEXT, inactive", validUrl, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 		if db_err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			response.Message = internalError
@@ -231,7 +231,7 @@ func deleteRedirect(db *pgxpool.Pool) http.HandlerFunc {
 			w.Write(toJson(response))
 			return
 		}
-		db_err := db.QueryRow(context.Background(), "UPDATE redirects SET inactive=$1, updated_at=now() WHERE id=$2 RETURNING id, path, url, updated_at::TEXT, inactive", true, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+		db_err := db.QueryRow(context.Background(), "UPDATE UrlRedirects SET inactive=$1, updated_at=now() WHERE id=$2 RETURNING id, path, url, updated_at::TEXT, inactive", true, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 		if db_err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			response.Message = internalError

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,13 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func main() {
-	dbpool, db_err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
-	if db_err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to DB: %v\n", db_err)
-		os.Exit(1)
-	}
-	defer dbpool.Close()
+func initRouter(dbpool *pgxpool.Pool) *chi.Mux {
 	router := chi.NewRouter()
 	actionsRouter := chi.NewRouter()
 	actionsRouter.Use(verifyApiKey)
@@ -45,6 +38,22 @@ func main() {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write([]byte(errorMessage))
 	})
+	return router
+}
+
+func main() {
+	dbpool, db_err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
+	if db_err != nil {
+		log.Fatalf("Unable to connect to DB: %v\n", db_err)
+		os.Exit(1)
+	}
+	defer dbpool.Close()
+	_, db_init_err := dbpool.Exec(context.Background(), urlredirectSchema)
+	if db_init_err != nil {
+		log.Fatalf("Error creating table: %v", db_init_err)
+	}
+	log.Println("DB initialized successfully")
+	router := initRouter(dbpool)
 	log.Println("Sever running at Port 8082")
 	log.Fatal(http.ListenAndServe("127.0.0.1:8082", router))
 }

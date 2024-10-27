@@ -1,110 +1,72 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
+	"net/url"
 	"strconv"
-	"strings"
-	"time"
+
+	"github.com/urfave/cli/v2"
 )
 
-const endPointPath = "/api/action/"
-
-var apiHost = os.Getenv("API_HOST")
-var apiKey = os.Getenv("API_KEY")
-
-func getRedirect(id int) {
-	var response Redirect
-	endPoint := httpsProtocol + apiHost + endPointPath + "info/" + strconv.Itoa(id)
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", endPoint, nil)
-	if err != nil {
-		respondAndExit("Request Creation failed")
+func getStatus(*cli.Context) error {
+	if isAPIUp() {
+		fmt.Println("API is running")
+	} else {
+		fmt.Println("API is Down")
 	}
-	req.Header.Add("X-Redirect-API-KEY", apiKey)
-	res, err := client.Do(req)
-	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Info: Request Failed")
-	}
-	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
+	return nil
 }
 
-func createRedirect(url string, path string) {
-	var response Redirect
-	reqBody := UrlData{Url: url, Path: path}
-	endPoint := httpsProtocol + apiHost + endPointPath + "create"
-	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", endPoint, reqBodyBytes)
-	if err != nil {
-		respondAndExit("Request Creation failed")
+func getUrlRedirect(cCtx *cli.Context) error {
+	idStr := cCtx.Args().Get(0)
+	id, idErr := strconv.Atoi(idStr)
+	if idErr != nil {
+		respondAndExit("Args Error", idErr)
 	}
-	req.Header.Set("X-Redirect-API-KEY", apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	res, err := client.Do(req)
-	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Create: Request Failed")
-	}
-	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
+	getRedirect(id)
+	return nil
 }
 
-func fixRedirect(url string, path string) {
-	var response Redirect
-	reqBody := UrlData{Url: url, Path: path}
-	endPoint := httpsProtocol + apiHost + endPointPath + "fix"
-	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
-	client := &http.Client{}
-	req, err := http.NewRequest("PATCH", endPoint, reqBodyBytes)
-	if err != nil {
-		fmt.Print("Request Creation failed")
+func addUrlRedirect(cCtx *cli.Context) error {
+	path, uri := cCtx.Args().Get(0), cCtx.Args().Get(1)
+	_, pathErr := url.Parse(path)
+	_, uriErr := url.Parse(uri)
+	if pathErr != nil || uriErr != nil {
+		respondAndExit("Args Error", pathErr, uriErr)
 	}
-	req.Header.Set("X-Redirect-API-KEY", apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	res, err := client.Do(req)
-	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Fix: Request Failed")
-	}
-	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
-}
-func updateRedirect(url string, id int, path string) {
-	var response Redirect
-	reqBody := Redirect{Id: id, Url: url, Path: path, LastUpdated: time.Now().Format("YYYY-MM-DD hh:mm:ss"), Inactive: false}
-	endPoint := httpsProtocol + apiHost + endPointPath + "update/" + strconv.Itoa(id)
-	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
-	client := &http.Client{}
-	req, err := http.NewRequest("PUT", endPoint, reqBodyBytes)
-	if err != nil {
-		fmt.Print("Request Creation failed")
-	}
-	req.Header.Set("X-Redirect-API-KEY", apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	res, err := client.Do(req)
-	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Update: Request Failed")
-	}
-	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
+	createRedirect(uri, path)
+	return nil
 }
 
-func deleteRedirect(id int) {
-	var response Redirect
-	endPoint := httpsProtocol + apiHost + endPointPath + "disable/" + strconv.Itoa(id)
-	client := &http.Client{}
-	req, err := http.NewRequest("DELETE", endPoint, nil)
-	if err != nil {
-		fmt.Print("Request Creation failed")
+func updateUrlRedirect(cCtx *cli.Context) error {
+	idStr, path, uri := cCtx.Args().Get(0), cCtx.Args().Get(1), cCtx.Args().Get(2)
+	id, idErr := strconv.Atoi(idStr)
+	_, pathErr := url.Parse(path)
+	_, uriErr := url.Parse(uri)
+	if idErr != nil || pathErr != nil || uriErr != nil {
+		respondAndExit("Args Error", idErr, pathErr, uriErr)
 	}
-	req.Header.Add("X-Redirect-API-KEY", apiKey)
-	res, err := client.Do(req)
-	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Disable: Request Failed")
+	updateRedirect(id, path, uri)
+	return nil
+}
+
+func fixUrlRedirect(cCtx *cli.Context) error {
+	path, uri := cCtx.Args().Get(0), cCtx.Args().Get(1)
+	_, pathErr := url.Parse(path)
+	_, uriErr := url.Parse(uri)
+	if pathErr != nil || uriErr != nil {
+		respondAndExit("Args Error", pathErr, uriErr)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
+	fixRedirect(uri, path)
+	return nil
+}
+
+func disableUrlRedirect(cCtx *cli.Context) error {
+	idStr := cCtx.Args().Get(0)
+	id, idErr := strconv.Atoi(idStr)
+	if idErr != nil {
+		respondAndExit("Args Error", idErr)
+	}
+	deleteRedirect(id)
+	return nil
 }

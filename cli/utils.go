@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -44,12 +45,13 @@ func isAPIUp() bool {
 }
 
 func responseString(r Redirect) {
-	fmt.Printf("ID: %d\nPath: %s\nURL: %s\nLast Updated: %s\nRedirect Inactive: %t\n\n", r.Id, r.Path, r.Url, r.LastUpdated, r.Inactive)
+	absoluteUrl := httpsProtocol + r.Url
+	fmt.Printf("ID: %d\nPath: %s\nURL: %s\nLast Updated: %s\nInactive: %t\n", r.Id, r.Path, absoluteUrl, r.LastUpdated, r.Inactive)
 	defer os.Exit(0)
 }
 
-func respondAndExit(msg string) {
-	fmt.Println(msg)
+func respondAndExit(msg string, args ...any) {
+	log.Fatalln(msg, args)
 	defer os.Exit(1)
 }
 

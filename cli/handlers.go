@@ -3,18 +3,11 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 )
-
-const actionsApiEndpoint = "/api/action/"
-
-var apiHost = os.Getenv("API_HOST")
-var apiKey = os.Getenv("API_KEY")
 
 func getRedirect(id int) {
 	var response Redirect
@@ -22,15 +15,15 @@ func getRedirect(id int) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", endPoint, nil)
 	if err != nil {
-		respondAndExit("Request Creation failed")
+		respondAndExit("Request Creation failed", err)
 	}
 	req.Header.Add("X-Redirect-API-KEY", apiKey)
 	res, err := client.Do(req)
 	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Info: Request Failed")
+		respondAndExit("Info: Request Failed", res.StatusCode, res.Body)
 	}
 	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
+	consoleDataWriter(response)
 }
 
 func createRedirect(url string, path string) {
@@ -41,16 +34,16 @@ func createRedirect(url string, path string) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", endPoint, reqBodyBytes)
 	if err != nil {
-		respondAndExit("Request Creation failed")
+		respondAndExit("Request Creation failed", err)
 	}
 	req.Header.Set("X-Redirect-API-KEY", apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	res, err := client.Do(req)
 	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Create: Request Failed")
+		respondAndExit("Create: Request Failed", res.StatusCode, res.Body)
 	}
 	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
+	consoleDataWriter(response)
 }
 
 func fixRedirect(url string, path string) {
@@ -61,16 +54,16 @@ func fixRedirect(url string, path string) {
 	client := &http.Client{}
 	req, err := http.NewRequest("PATCH", endPoint, reqBodyBytes)
 	if err != nil {
-		fmt.Print("Request Creation failed")
+		respondAndExit("Request Creation failed", err)
 	}
 	req.Header.Set("X-Redirect-API-KEY", apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	res, err := client.Do(req)
 	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Fix: Request Failed")
+		respondAndExit("Fix: Request Failed", res.StatusCode, res.Body)
 	}
 	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
+	consoleDataWriter(response)
 }
 func updateRedirect(id int, path string, url string) {
 	var response Redirect
@@ -80,16 +73,16 @@ func updateRedirect(id int, path string, url string) {
 	client := &http.Client{}
 	req, err := http.NewRequest("PUT", endPoint, reqBodyBytes)
 	if err != nil {
-		fmt.Print("Request Creation failed")
+		respondAndExit("Request Creation failed", err)
 	}
 	req.Header.Set("X-Redirect-API-KEY", apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	res, err := client.Do(req)
 	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Update: Request Failed")
+		respondAndExit("Update: Request Failed", res.StatusCode, res.Body)
 	}
 	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
+	consoleDataWriter(response)
 }
 
 func deleteRedirect(id int) {
@@ -98,13 +91,70 @@ func deleteRedirect(id int) {
 	client := &http.Client{}
 	req, err := http.NewRequest("DELETE", endPoint, nil)
 	if err != nil {
-		fmt.Print("Request Creation failed")
+		respondAndExit("Request Creation failed", err)
 	}
 	req.Header.Add("X-Redirect-API-KEY", apiKey)
 	res, err := client.Do(req)
 	if err != nil || !strings.Contains(res.Status, successfulRequest) {
-		respondAndExit("Disable: Request Failed")
+		respondAndExit("Disable: Request Failed", res.StatusCode, res.Body)
 	}
 	json.NewDecoder(res.Body).Decode(&response)
-	responseString(response)
+	consoleDataWriter(response)
+}
+
+func listRedirect(page int) {
+	var response []Redirect
+	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "list?page=" + strconv.Itoa(page)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", endPoint, nil)
+	if err != nil {
+		respondAndExit("Request Creation failed", err)
+	}
+	req.Header.Add("X-Redirect-API-KEY", apiKey)
+	res, err := client.Do(req)
+	if err != nil || !strings.Contains(res.Status, successfulRequest) {
+		respondAndExit("List: Request Failed", res.StatusCode, res.Body)
+	}
+	json.NewDecoder(res.Body).Decode(&response)
+	consoleDataListWriter(response)
+}
+
+func searchRedirect(path string, page int) {
+	var response []Redirect
+	reqBody := SearchQuery{Data: path}
+	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "searchPath?page=" + strconv.Itoa(page)
+	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", endPoint, reqBodyBytes)
+	if err != nil {
+		respondAndExit("Request Creation failed", err)
+	}
+	req.Header.Set("X-Redirect-API-KEY", apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := client.Do(req)
+	if err != nil || !strings.Contains(res.Status, successfulRequest) {
+		respondAndExit("Search: Request Failed", res.StatusCode, res.Body)
+	}
+	json.NewDecoder(res.Body).Decode(&response)
+	consoleDataListWriter(response)
+}
+
+func redirectExists(path string) {
+	var response Redirect
+	reqBody := SearchQuery{Data: path}
+	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "destinationExists"
+	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", endPoint, reqBodyBytes)
+	if err != nil {
+		respondAndExit("Request Creation failed", err)
+	}
+	req.Header.Set("X-Redirect-API-KEY", apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := client.Do(req)
+	if err != nil || !strings.Contains(res.Status, successfulRequest) {
+		respondAndExit("Exists: Request Failed", res.StatusCode, res.Body)
+	}
+	json.NewDecoder(res.Body).Decode(&response)
+	consoleDataWriter(response)
 }

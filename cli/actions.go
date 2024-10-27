@@ -70,3 +70,41 @@ func disableUrlRedirect(cCtx *cli.Context) error {
 	deleteRedirect(id)
 	return nil
 }
+
+func listUrlRedirects(cCtx *cli.Context) error {
+	pageStr := cCtx.Args().Get(0)
+	page, pageErr := strconv.Atoi(pageStr)
+	if pageErr != nil {
+		page = 0
+	} else {
+		page = page * 10
+	}
+	listRedirect(page)
+	return nil
+}
+
+func searchUrlRedirect(cCtx *cli.Context) error {
+	path, pageStr := cCtx.Args().Get(0), cCtx.Args().Get(1)
+	page, pageErr := strconv.Atoi(pageStr)
+	_, pathErr := url.Parse(path)
+	if pathErr != nil {
+		respondAndExit("Args Error", pathErr)
+	}
+	if pageErr != nil {
+		page = 0
+	} else {
+		page = page * 10
+	}
+	searchRedirect(path, page)
+	return nil
+}
+
+func urlRedirectExists(cCtx *cli.Context) error {
+	path := cCtx.Args().Get(0)
+	_, pathErr := url.Parse(path)
+	if pathErr != nil {
+		respondAndExit("Args Error", pathErr)
+	}
+	redirectExists(path)
+	return nil
+}

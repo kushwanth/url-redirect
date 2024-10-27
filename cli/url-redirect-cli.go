@@ -58,6 +58,24 @@ func main() {
 				ArgsUsage: "path url",
 				Action:    fixUrlRedirect,
 			},
+			{
+				Name:      "list",
+				Usage:     "list all redirects",
+				ArgsUsage: "page",
+				Action:    listUrlRedirects,
+			},
+			{
+				Name:      "search",
+				Usage:     "search for a redirect",
+				ArgsUsage: "search",
+				Action:    searchUrlRedirect,
+			},
+			{
+				Name:      "check",
+				Usage:     "check if a redirect exists",
+				ArgsUsage: "check",
+				Action:    urlRedirectExists,
+			},
 		},
 	}
 	if err := app.Run(os.Args); err != nil {

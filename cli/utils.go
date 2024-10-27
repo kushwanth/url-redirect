@@ -7,12 +7,18 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"text/tabwriter"
 )
 
 var errorBytes []byte
 
 const httpsProtocol = "https://"
 const successfulRequest = "200"
+const actionsApiEndpoint = "/api/action/"
+const operationsApiEndpoint = "/api/operations/"
+
+var apiHost = os.Getenv("API_HOST")
+var apiKey = os.Getenv("API_KEY")
 
 type ResponseMessage struct {
 	Message string
@@ -31,6 +37,10 @@ type UrlData struct {
 	Path string `json:"path,omitempty"`
 }
 
+type UrlParams struct {
+	page int
+}
+
 type SearchQuery struct {
 	Data string `json:"data,omitempty"`
 }
@@ -44,9 +54,26 @@ func isAPIUp() bool {
 	return strings.Contains(res.Status, successfulRequest)
 }
 
-func responseString(r Redirect) {
+func consoleDataWriter(r Redirect) {
 	absoluteUrl := httpsProtocol + r.Url
-	fmt.Printf("ID: %d\nPath: %s\nURL: %s\nLast Updated: %s\nInactive: %t\n", r.Id, r.Path, absoluteUrl, r.LastUpdated, r.Inactive)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "ID:\t%d\n", r.Id)
+	fmt.Fprintf(w, "Path:\t%s\n", r.Path)
+	fmt.Fprintf(w, "URL:\t%s\n", absoluteUrl)
+	fmt.Fprintf(w, "Inactive:\t%t\n", r.Inactive)
+	fmt.Fprintf(w, "Updated:\t%s\n", r.LastUpdated)
+	w.Flush()
+	defer os.Exit(0)
+}
+
+func consoleDataListWriter(redirectList []Redirect) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tPath\tUrl\tInactive")
+	fmt.Fprintln(w, "--\t----\t---\t--------")
+	for _, r := range redirectList {
+		fmt.Fprintf(w, "%d\t%s\t%s\t%t\n", r.Id, r.Path, r.Url, r.Inactive)
+	}
+	w.Flush()
 	defer os.Exit(0)
 }
 

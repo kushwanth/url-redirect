@@ -1,0 +1,34 @@
+name: API Release Workflow
+
+on:
+  push:
+    # branches:
+    #   - main
+    tags:
+      - '**-api'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'  # Specify the Go version
+
+    - name: Checking GitHub Container Registry Log in
+      run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+    - name: Build Container Image
+      run: |
+        tag="${GITHUB_REF##*/}"
+        docker build -t ghcr.io/${{ github.repository }}:${tag} -t ghcr.io/${{ github.repository }}:latest .
+
+    - name: Push Container Image to GHCR
+      run: |
+        tag="${GITHUB_REF##*/}"
+        docker push ghcr.io/${{ github.repository }}:latest
+        docker push ghcr.io/${{ github.repository }}:${tag}

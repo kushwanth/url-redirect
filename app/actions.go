@@ -16,7 +16,7 @@ func queryDB(path string, limit int, status bool, db *pgxpool.Pool) (Redirect, e
 	var responseData Redirect
 	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE path=$1 AND inactive=$2 LIMIT $3", path, status, limit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 	if db_err != nil {
-		return responseData, errors.New("Database Error")
+		return responseData, errors.New("database error")
 	}
 	return responseData, nil
 }
@@ -25,7 +25,7 @@ func queryDbWithId(id int, limit int, status bool, db *pgxpool.Pool) (Redirect, 
 	var responseData Redirect
 	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE id=$1 AND inactive=$2 LIMIT $3", id, status, limit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 	if db_err != nil {
-		return responseData, errors.New("Database Error")
+		return responseData, errors.New("database error")
 	}
 	return responseData, nil
 }
@@ -182,7 +182,7 @@ func updateRedirect(db *pgxpool.Pool) http.HandlerFunc {
 		}
 		err := json.NewDecoder(r.Body).Decode(&requestData)
 		validUrl, isUrlValid := validateAndFormatURL(requestData.Url)
-		_, isPathValid := validateAndFormatPath(requestData.Path)
+		validPath, isPathValid := validateAndFormatPath(requestData.Path)
 		w.Header().Set("Content-Type", "application/json")
 		if !isUrlValid || !isPathValid || err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -199,7 +199,7 @@ func updateRedirect(db *pgxpool.Pool) http.HandlerFunc {
 			w.Write(toJson(response))
 			return
 		}
-		db_err := db.QueryRow(context.Background(), "UPDATE UrlRedirects SET url=$1, updated_at=now() WHERE id=$2 RETURNING id, path, url, updated_at::TEXT, inactive", validUrl, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+		db_err := db.QueryRow(context.Background(), "UPDATE UrlRedirects SET path=$1, url=$2, updated_at=now() WHERE id=$3 RETURNING id, path, url, updated_at::TEXT, inactive", validPath, validUrl, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 		if db_err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			response.Message = internalError

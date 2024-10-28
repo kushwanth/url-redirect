@@ -17,6 +17,33 @@ const successfulRequest = "200"
 const actionsApiEndpoint = "/api/action/"
 const operationsApiEndpoint = "/api/operations/"
 
+const commandHelpText = `NAME: 
+   {{.Name}} - {{.Usage}}
+
+USAGE: 
+   {{.HelpName}} {{if .ArgsUsage}}{{.ArgsUsage}}{{else}}[arguments...]{{end}}
+
+OPTIONS:
+   {{range .VisibleFlags}}{{.}}
+   {{end}}
+`
+
+const appHelpText = `NAME: 
+   {{.Name}} - {{.Usage}}
+
+USAGE: 
+   {{.HelpName}} {{if .Commands}}command{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{else}}[arguments...]{{end}}
+   {{if len .Authors}}
+AUTHOR:
+   {{range .Authors}}{{ . }}{{end}}
+   {{end}}{{if .Commands}}
+COMMANDS:
+{{range .Commands}}{{if not .HideHelp}}   {{join .Names ", "}}{{ "\t"}}{{.Usage}}{{ "\n" }}{{end}}{{end}}{{end}}{{if .VisibleFlags}}
+GLOBAL OPTIONS:
+   {{range .VisibleFlags}}{{.}}
+   {{end}}{{end}}
+`
+
 var apiHost = os.Getenv("API_HOST")
 var apiKey = os.Getenv("API_KEY")
 

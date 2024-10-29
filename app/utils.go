@@ -46,12 +46,16 @@ type SearchQuery struct {
 	Data string `json:"data,omitempty"`
 }
 
-func validateURL(uri string) (string, bool) {
+func validateAndFormatURL(uri string) (string, bool) {
 	validUri, err := url.ParseRequestURI(uri)
-	if err != nil || len(validUri.Host) > 0 || len(validUri.Path) > 0 {
+	if err != nil {
 		return errorMessage, false
 	}
-	return validUri.String(), err == nil
+	formattedUri := validUri.Host + validUri.Path
+	if len(validUri.Query()) > 0 {
+		formattedUri = formattedUri + "?" + validUri.RawQuery
+	}
+	return formattedUri, err == nil
 }
 
 func validateAndFormatPath(path string) (string, bool) {

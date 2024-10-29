@@ -52,13 +52,12 @@ type SearchQuery struct {
 	Data string `json:"data,omitempty"`
 }
 
-func validateAndFormatURL(uri string) (string, bool) {
+func validateURL(uri string) (string, bool) {
 	validUri, err := url.ParseRequestURI(uri)
-	if err != nil {
+	if err != nil || len(validUri.Host) > 0 || len(validUri.Path) > 0 {
 		return errorMessage, false
 	}
-	formattedUri := validUri.Host + validUri.Path
-	return formattedUri, err == nil
+	return validUri.String(), err == nil
 }
 
 func validateAndFormatPath(path string) (string, bool) {

@@ -102,7 +102,7 @@ func addRedirect(db *pgxpool.Pool) http.HandlerFunc {
 		var requestData UrlData
 		var response ResponseMessage
 		err := json.NewDecoder(r.Body).Decode(&requestData)
-		validUrl, isUrlValid := validateAndFormatURL(requestData.Url)
+		validUrl, isUrlValid := validateURL(requestData.Url)
 		validPath, isPathValid := validateAndFormatPath(requestData.Path)
 		w.Header().Set("Content-Type", "application/json")
 		if !isUrlValid || !isPathValid || err != nil {
@@ -137,7 +137,7 @@ func patchRedirect(db *pgxpool.Pool) http.HandlerFunc {
 		var requestData UrlData
 		var response ResponseMessage
 		err := json.NewDecoder(r.Body).Decode(&requestData)
-		validUrl, isUrlValid := validateAndFormatURL(requestData.Url)
+		validUrl, isUrlValid := validateURL(requestData.Url)
 		validPath, isPathValid := validateAndFormatPath(requestData.Path)
 		w.Header().Set("Content-Type", "application/json")
 		if !isUrlValid || !isPathValid || err != nil {
@@ -181,7 +181,7 @@ func updateRedirect(db *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		err := json.NewDecoder(r.Body).Decode(&requestData)
-		validUrl, isUrlValid := validateAndFormatURL(requestData.Url)
+		validUrl, isUrlValid := validateURL(requestData.Url)
 		validPath, isPathValid := validateAndFormatPath(requestData.Path)
 		w.Header().Set("Content-Type", "application/json")
 		if !isUrlValid || !isPathValid || err != nil {

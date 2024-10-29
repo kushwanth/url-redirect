@@ -11,7 +11,7 @@ import (
 var errorBytes []byte
 
 const errorMessage = "Error"
-const notFoundMessage = "Not Found"
+const notFoundMessage = "Are you Lost??"
 const alreadyExistMessage = "URL Redirect for Path Exists"
 const notExistMessage = "URL Redirect for Path doesn't Exists"
 const internalError = "Internal Error"
@@ -28,12 +28,6 @@ const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
     updated_at TIMESTAMP NOT NULL DEFAULT now(),
     inactive BOOLEAN NOT NULL DEFAULT FALSE
 );`
-
-var WebsiteUrl string = os.Getenv("WebsiteUrl")
-
-type ResponseMessage struct {
-	Message string
-}
 
 type Redirect struct {
 	Id          int    `json:"id,omitempty"`

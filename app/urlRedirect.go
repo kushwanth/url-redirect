@@ -5,27 +5,31 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func initRouter(dbpool *pgxpool.Pool) *chi.Mux {
 	router := chi.NewRouter()
 	actionsRouter := chi.NewRouter()
+	operationsRouter := chi.NewRouter()
 	actionsRouter.Use(verifyApiKey)
+	operationsRouter.Use(verifyApiKey)
 	actionsRouter.Get("/info/{id}", redirectInfo(dbpool))
 	actionsRouter.Post("/create", addRedirect(dbpool))
 	actionsRouter.Put("/update/{id}", updateRedirect(dbpool))
 	actionsRouter.Patch("/fix", patchRedirect(dbpool))
 	actionsRouter.Delete("/disable/{id}", deleteRedirect(dbpool))
-	operationsRouter := chi.NewRouter()
-	operationsRouter.Use(verifyApiKey)
 	operationsRouter.Get("/list", listall(dbpool))
+	operationsRouter.Post("/generate", generateRedirect(dbpool))
 	operationsRouter.Post("/searchPath", searchPath(dbpool))
 	operationsRouter.Post("/destinationExists", redirectExists(dbpool))
 	router.Use(middleware.Logger)
+	router.Use(httprate.Limit(10, time.Minute))
 	router.Use(middleware.AllowContentType("application/json"))
 	router.Use(middleware.Heartbeat("/app/health"))
 	router.Get("/notfound", notFound)

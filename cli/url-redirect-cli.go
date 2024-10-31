@@ -86,6 +86,15 @@ func main() {
 				Action:             listUrlRedirects,
 			},
 			{
+				Name:               "generate",
+				Usage:              "generates an short url redirect",
+				Args:               true,
+				ArgsUsage:          "url",
+				HideHelpCommand:    true,
+				CustomHelpTemplate: commandHelpText,
+				Action:             generateShortRedirect,
+			},
+			{
 				Name:               "search",
 				Usage:              "search for a redirect",
 				Args:               true,

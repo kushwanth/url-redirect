@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -85,7 +84,7 @@ func isAPIUp() bool {
 	return res.StatusCode == http.StatusOK && areApiEnvAvailable
 }
 
-func apiService(method string, apiEndpoint string, data io.Reader) (*http.Response, error) {
+func apiService(method string, apiEndpoint string, data io.Reader) *http.Response {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, apiEndpoint, data)
 	if err != nil {
@@ -94,13 +93,13 @@ func apiService(method string, apiEndpoint string, data io.Reader) (*http.Respon
 	req.Header.Set("X-Redirect-API-KEY", apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	if !isAPIUp() {
-		return nil, errors.New("API Down")
+		respondAndExit("API Down")
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		respondAndExit("API Request Failed", res.StatusCode, res.Body)
+		respondAndExit("API Request Failed", res.StatusCode)
 	}
-	return res, nil
+	return res
 }
 
 func consoleDataWriter(r Redirect) {

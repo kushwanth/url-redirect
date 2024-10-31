@@ -7,7 +7,11 @@ require (
 	github.com/jackc/pgx/v5 v5.7.1
 )
 
-require github.com/cespare/xxhash/v2 v2.3.0 // indirect
+require (
+	github.com/boyter/go-string v1.0.5 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/medama-io/go-useragent v1.0.1 // indirect
+)
 
 require (
 	github.com/go-chi/httprate v0.14.1

@@ -13,10 +13,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func about(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "text/plain")
+	w.Write([]byte("Hello, I Redirect URL's"))
+}
+
+func notFound(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
+	w.Write([]byte(notFoundMessage))
+}
+
 func initRouter(dbpool *pgxpool.Pool) *chi.Mux {
 	router := chi.NewRouter()
 	actionsRouter := chi.NewRouter()
 	operationsRouter := chi.NewRouter()
+	router.Use(logRequest(dbpool))
+	router.Use(httprate.Limit(10, time.Minute))
+	router.Use(middleware.AllowContentType("application/json"))
+	router.Use(middleware.Heartbeat("/app/health"))
 	actionsRouter.Use(verifyApiKey)
 	operationsRouter.Use(verifyApiKey)
 	actionsRouter.Get("/info/{id}", redirectInfo(dbpool))
@@ -28,13 +43,9 @@ func initRouter(dbpool *pgxpool.Pool) *chi.Mux {
 	operationsRouter.Post("/generate", generateRedirect(dbpool))
 	operationsRouter.Post("/searchPath", searchPath(dbpool))
 	operationsRouter.Post("/destinationExists", redirectExists(dbpool))
-	router.Use(middleware.Logger)
-	router.Use(httprate.Limit(10, time.Minute))
-	router.Use(middleware.AllowContentType("application/json"))
-	router.Use(middleware.Heartbeat("/app/health"))
+	router.Get("/*", handleRedirect(dbpool))
 	router.Get("/notfound", notFound)
 	router.Get("/about", about)
-	router.Get("/*", handleRedirect(dbpool))
 	router.Mount("/api/action", actionsRouter)
 	router.Mount("/api/operations", operationsRouter)
 	router.NotFound(notFound)
@@ -52,12 +63,18 @@ func main() {
 		os.Exit(1)
 	}
 	defer dbpool.Close()
-	_, db_init_err := dbpool.Exec(context.Background(), urlredirectSchema)
-	if db_init_err != nil {
-		log.Fatalf("Error creating table: %v", db_init_err)
+	_, db_init_err1 := dbpool.Exec(context.Background(), urlredirectSchema)
+	if db_init_err1 != nil {
+		log.Fatalf("Error creating URL Redirects table: %v\n", db_init_err1)
+		defer os.Exit(1)
+	}
+	_, db_init_err2 := dbpool.Exec(context.Background(), urlredirectAnalyticsSchema)
+	if db_init_err2 != nil {
+		log.Fatalf("Error creating URL Redirects Analytics table: %v\n", db_init_err2)
+		defer os.Exit(1)
 	}
 	log.Println("DB initialized successfully")
 	router := initRouter(dbpool)
 	log.Println("Sever running at Port 8082")
-	log.Fatal(http.ListenAndServe("127.0.0.1:8082", router))
+	log.Fatalln(http.ListenAndServe("127.0.0.1:8082", router))
 }

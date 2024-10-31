@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/medama-io/go-useragent"
 	"golang.org/x/exp/rand"
 )
 
 var errorBytes []byte
+var uaParser = useragent.NewParser()
 
 const errorMessage = "Error"
 const notFoundMessage = "Are you Lost??"
@@ -36,12 +37,38 @@ const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
 	is_private BOOLEAN NOT NULL DEFAULT FALSE
 );`
 
+const urlredirectAnalyticsSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects_Analytics (
+  id SERIAL PRIMARY KEY,
+  path VARCHAR(29) NOT NULL,       
+  event_date TIMESTAMP NOT NULL DEFAULT now(),
+  status int NOT NULL,
+  country VARCHAR(3),
+  processing_time bigint,
+  ip_address inet,
+  browser VARCHAR(16),
+  browser_version VARCHAR(3),
+  os VARCHAR(16),
+  device_type INT
+);`
+
 type Redirect struct {
 	Id          int    `json:"id,omitempty"`
 	Path        string `json:"path,omitempty"`
 	Url         string `json:"url,omitempty"`
 	LastUpdated string `json:"lastUpdated,omitempty"`
 	Inactive    bool   `json:"inactive,omitempty"`
+}
+
+type LogEvent struct {
+	path            string
+	status          int
+	country         string
+	processing_time string
+	ip_address      *string
+	browser         string
+	browser_version string
+	os              string
+	device_type     rune
 }
 
 type UrlData struct {
@@ -73,18 +100,6 @@ func validateAndFormatPath(path string) (string, bool) {
 	}
 	formattedPath = strings.Trim(validPath.Path, "/")
 	return formattedPath, err == nil
-}
-
-func verifyApiKey(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		apiKey := os.Getenv("API_KEY")
-		apiKeyHeader := r.Header.Get("X-Redirect-API-KEY")
-		if apiKeyHeader != apiKey {
-			http.Error(w, errorMessage, http.StatusUnauthorized)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
 }
 
 func getRedirectUsingPath(path string, db *pgxpool.Pool) (Redirect, error) {
@@ -134,11 +149,6 @@ func buildUri(url string) string {
 	return httpsProtocol + url
 }
 
-func notFound(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte(notFoundMessage))
-}
-
 func toJson(struc interface{}) []byte {
 	responseMessageJson, err := json.Marshal(struc)
 	if err != nil {
@@ -148,8 +158,16 @@ func toJson(struc interface{}) []byte {
 	}
 }
 
-func about(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Header().Add("Content-Type", "text/plain")
-	w.Write([]byte("Hello, I Redirect URL's"))
+func getRequestDeviceType(reqUA useragent.UserAgent) rune {
+	deviceType := 'U'
+	if reqUA.IsDesktop() {
+		deviceType = 'D'
+	} else if reqUA.IsMobile() || reqUA.IsTablet() {
+		deviceType = 'M'
+	} else if reqUA.IsBot() {
+		deviceType = 'B'
+	} else {
+		deviceType = 'U'
+	}
+	return deviceType
 }

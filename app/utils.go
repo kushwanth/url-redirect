@@ -99,7 +99,7 @@ func getRedirectUsingPath(path string, db *pgxpool.Pool) (Redirect, error) {
 
 func getRedirectUsingId(id int, db *pgxpool.Pool) (Redirect, error) {
 	var responseData Redirect
-	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE id=$1 LIMIT $3", id, dbLimit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE id=$1 LIMIT $2", id, dbLimit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 	if db_err != nil {
 		log.Println("getRedirectUsingId ->", db_err.Error())
 		return responseData, errors.New("database error")

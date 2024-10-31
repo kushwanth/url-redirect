@@ -21,8 +21,8 @@ func handleRedirect(db *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		dbResponse, err := getRedirectUsingPath(validPath, db)
-		if err != nil || dbResponse.Inactive {
-			log.Println("handleRedirect ->", err.Error())
+		if err != nil || dbResponse.Id == 0 || (dbResponse.Id != 0 && dbResponse.Inactive) {
+			log.Println("handleRedirect ->", err, dbResponse.Id)
 			http.Error(w, notFoundMessage, http.StatusNotFound)
 			return
 		}
@@ -93,8 +93,8 @@ func patchRedirect(db *pgxpool.Pool) http.HandlerFunc {
 		}
 		var responseData Redirect
 		dbResponse, dbErr := getRedirectUsingPath(validPath, db)
-		if dbErr != nil {
-			log.Println("patchRedirect -> ", dbErr.Error())
+		if dbErr != nil || dbResponse.Id == 0 || (dbResponse.Id != 0 && dbResponse.Inactive) {
+			log.Println("patchRedirect -> ", dbErr, dbResponse.Id)
 			http.Error(w, notExistMessage, http.StatusPreconditionFailed)
 			return
 		}

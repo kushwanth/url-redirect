@@ -21,7 +21,6 @@ const errorMessage = "Error"
 const notFoundMessage = "Are you Lost??"
 const alreadyExistMessage = "URL Redirect Exists"
 const notExistMessage = "URL Redirect for Path doesn't Exists"
-const internalError = "Internal Error"
 const badRequest = "Bad Request"
 const dbError = "DataBase Error"
 const dbLimit = 1

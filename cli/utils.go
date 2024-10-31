@@ -2,18 +2,17 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
+	"io"
 	"net/http"
 	"os"
-	"strings"
 	"text/tabwriter"
 )
 
 var errorBytes []byte
 
 const httpsProtocol = "https://"
-const successfulRequest = "200"
 const actionsApiEndpoint = "/api/action/"
 const operationsApiEndpoint = "/api/operations/"
 
@@ -44,8 +43,8 @@ GLOBAL OPTIONS:
    {{end}}{{end}}
 `
 
-var apiHost = os.Getenv("API_HOST")
-var apiKey = os.Getenv("API_KEY")
+var apiHost, apiHostAvailable = os.LookupEnv("API_HOST")
+var apiKey, apiKeyAvailable = os.LookupEnv("API_KEY")
 
 type ResponseMessage struct {
 	Message string
@@ -68,17 +67,40 @@ type UrlParams struct {
 	page int
 }
 
-type SearchQuery struct {
+type OpsData struct {
 	Data string `json:"data,omitempty"`
 }
 
 func isAPIUp() bool {
+	areApiEnvAvailable := apiHostAvailable && apiKeyAvailable
+	if !areApiEnvAvailable {
+		defer os.Exit(0)
+		return false
+	}
 	url := httpsProtocol + apiHost + "/app/health"
 	res, err := http.Get(url)
 	if err != nil {
-		return false
+		return false && areApiEnvAvailable
 	}
-	return strings.Contains(res.Status, successfulRequest)
+	return res.StatusCode == http.StatusOK && areApiEnvAvailable
+}
+
+func apiService(method string, apiEndpoint string, data io.Reader) (*http.Response, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest(method, apiEndpoint, data)
+	if err != nil {
+		respondAndExit("Request Creation failed", err)
+	}
+	req.Header.Set("X-Redirect-API-KEY", apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	if !isAPIUp() {
+		return nil, errors.New("API Down")
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		respondAndExit("API Request Failed", res.StatusCode, res.Body)
+	}
+	return res, nil
 }
 
 func consoleDataWriter(r Redirect) {
@@ -105,7 +127,7 @@ func consoleDataListWriter(redirectList []Redirect) {
 }
 
 func respondAndExit(msg string, args ...any) {
-	log.Fatalln(msg, args)
+	fmt.Println(msg, args)
 	defer os.Exit(1)
 }
 

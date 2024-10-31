@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"time"
 
@@ -107,6 +107,7 @@ func main() {
 		CustomAppHelpTemplate: appHelpText,
 	}
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		defer os.Exit(1)
 	}
 }

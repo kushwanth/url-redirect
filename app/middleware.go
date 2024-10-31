@@ -48,11 +48,11 @@ func logRequest(db *pgxpool.Pool) func(http.Handler) http.Handler {
 			processingTime := time.Since(startTime).Milliseconds()
 			rUA := uaParser.Parse(r.Header.Get("User-Agent"))
 			deviceType := getRequestDeviceType(rUA)
-			_, dbEventErr := db.Exec(context.Background(), `INSERT INTO UrlRedirects_Analytics (path, event_date, status, country, processing_time, ip_address, browser, browser_version, os, device_type) VALUES ($1,now(),$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, path, event_date, status, country, processing_time, ip_address, browser, browser_version, os, device_type`, rPath, appResWriter.statusCode, r.Header.Get("Cf-Ipcountry"), processingTime, rIP, rUA.GetBrowser(), rUA.GetMajorVersion(), rUA.GetOS(), deviceType) //.Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+			_, dbEventErr := db.Exec(context.Background(), `INSERT INTO UrlRedirects_Analytics (path, timestamp, status, country, processing_time, ip_address, browser, os, device_type) VALUES ($1,now(),$2,$3,$4,$5,$6,$7,$8) RETURNING id`, rPath, appResWriter.statusCode, r.Header.Get("Cf-Ipcountry"), processingTime, rIP, rUA.GetBrowser(), rUA.GetOS(), deviceType)
 			if dbEventErr != nil {
 				log.Println(dbEventErr.Error())
 			}
-			log.Printf("%s %s %d %v\n", r.Method, rPath, appResWriter.statusCode, processingTime)
+			log.Printf("%s %s %d %vms\n", r.Method, rPath, appResWriter.statusCode, processingTime)
 		})
 	}
 }

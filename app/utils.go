@@ -24,6 +24,7 @@ const alreadyExistMessage = "URL Redirect Exists"
 const notExistMessage = "URL Redirect for Path doesn't Exists"
 const badRequest = "Bad Request"
 const dbError = "DataBase Error"
+const internalError = "Internal Error"
 const dbLimit = 1
 const pageLimit = 10
 const httpsProtocol = "https://"
@@ -40,13 +41,12 @@ const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
 const urlredirectAnalyticsSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects_Analytics (
   id SERIAL PRIMARY KEY,
   path VARCHAR(29) NOT NULL,       
-  event_date TIMESTAMP NOT NULL DEFAULT now(),
+  timestamp TIMESTAMP NOT NULL DEFAULT now(),
   status int NOT NULL,
   country VARCHAR(3),
   processing_time bigint,
   ip_address inet,
   browser VARCHAR(16),
-  browser_version VARCHAR(3),
   os VARCHAR(16),
   device_type INT
 );`
@@ -59,16 +59,20 @@ type Redirect struct {
 	Inactive    bool   `json:"inactive,omitempty"`
 }
 
-type LogEvent struct {
+type LogData struct {
 	path            string
 	status          int
 	country         string
 	processing_time string
 	ip_address      *string
 	browser         string
-	browser_version string
 	os              string
 	device_type     rune
+}
+
+type LogQueryData struct {
+	DataItem  string `json:"data_item,omitempty"`
+	ItemCount any    `json:"item_count,omitempty"`
 }
 
 type UrlData struct {
@@ -78,6 +82,11 @@ type UrlData struct {
 
 type OpsData struct {
 	Data string `json:"data,omitempty"`
+}
+
+type StatsTime struct {
+	Start int64 `json:"start,omitempty"`
+	End   int64 `json:"end,omitempty"`
 }
 
 func validateAndFormatURL(uri string) (string, bool) {

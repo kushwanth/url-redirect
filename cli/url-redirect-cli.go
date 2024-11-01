@@ -12,7 +12,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "redirector",
 		Usage:                "Interact with URL Redirect API",
-		Version:              "v1.3",
+		Version:              getCliVersion(),
 		Compiled:             time.Now(),
 		EnableBashCompletion: true,
 		Args:                 true,
@@ -111,6 +111,19 @@ func main() {
 				HideHelpCommand:    true,
 				CustomHelpTemplate: commandHelpText,
 				Action:             urlRedirectExists,
+			},
+			{
+				Name:            "stats",
+				Usage:           "get redirect stats",
+				Args:            false,
+				ArgsUsage:       "url",
+				HideHelpCommand: true,
+				Flags: []cli.Flag{
+					&cli.IntFlag{Name: "days", Aliases: []string{"D"}, Value: 0},
+					&cli.IntFlag{Name: "hours", Aliases: []string{"H"}, Value: 1},
+				},
+				CustomHelpTemplate: commandHelpText,
+				Action:             getRedirectStats,
 			},
 		},
 		CustomAppHelpTemplate: appHelpText,

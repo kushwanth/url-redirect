@@ -197,3 +197,18 @@ func generateShortRedirect(cCtx *cli.Context) error {
 	consoleDataWriter(response)
 	return nil
 }
+
+func getRedirectStats(cCtx *cli.Context) error {
+	timeFrame := ((int(cCtx.Value("days").(int)) * 24) + int(cCtx.Value("hours").(int))) * -1
+	reqBody := StatsTime{Start: time.Now().Add(time.Duration(timeFrame) * time.Hour).Unix(), End: time.Now().Unix()}
+	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "stats"
+	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
+	var response LogStatsData
+	res := apiService(http.MethodPost, endPoint, reqBodyBytes)
+	if res.StatusCode != http.StatusOK {
+		respondAndExit(res.Status)
+	}
+	json.NewDecoder(res.Body).Decode(&response)
+	consoleStatsWriter(response)
+	return nil
+}

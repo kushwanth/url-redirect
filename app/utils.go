@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -41,14 +42,14 @@ const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
 const urlredirectAnalyticsSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects_Analytics (
   id SERIAL PRIMARY KEY,
   path VARCHAR(29) NOT NULL,       
-  timestamp TIMESTAMP NOT NULL DEFAULT now(),
+  log_timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   status int NOT NULL,
   country VARCHAR(3),
   processing_time bigint,
   ip_address inet,
   browser VARCHAR(16),
   os VARCHAR(16),
-  device_type INT
+  device_type CHAR(1)
 );`
 
 type Redirect struct {
@@ -59,20 +60,19 @@ type Redirect struct {
 	Inactive    bool   `json:"inactive,omitempty"`
 }
 
-type LogData struct {
-	path            string
-	status          int
-	country         string
-	processing_time string
-	ip_address      *string
-	browser         string
-	os              string
-	device_type     rune
+type LogStatsData struct {
+	Path    []LogQueryData `json:"path,omitempty"`
+	Status  []LogQueryData `json:"status,omitempty"`
+	Country []LogQueryData `json:"country,omitempty"`
+	Time    []LogQueryData `json:"time,omitempty"`
+	Browser []LogQueryData `json:"browser,omitempty"`
+	Os      []LogQueryData `json:"os,omitempty"`
+	Devices []LogQueryData `json:"devices,omitempty"`
 }
 
 type LogQueryData struct {
-	DataItem  string `json:"data_item,omitempty"`
-	ItemCount any    `json:"item_count,omitempty"`
+	StatKey   string `json:"stat_key,omitempty"`
+	StatCount any    `json:"stat_count,omitempty"`
 }
 
 type UrlData struct {
@@ -158,25 +158,30 @@ func buildUri(url string) string {
 	return httpsProtocol + url
 }
 
-func toJson(struc interface{}) []byte {
-	responseMessageJson, err := json.Marshal(struc)
+func toJson(data interface{}) []byte {
+	responseJson, err := json.Marshal(data)
 	if err != nil {
+		log.Println("JSONwriter ->", err.Error())
 		return errorBytes
 	} else {
-		return responseMessageJson
+		return responseJson
 	}
 }
 
-func getRequestDeviceType(reqUA useragent.UserAgent) rune {
-	deviceType := 'U'
-	if reqUA.IsDesktop() {
-		deviceType = 'D'
-	} else if reqUA.IsMobile() || reqUA.IsTablet() {
-		deviceType = 'M'
-	} else if reqUA.IsBot() {
-		deviceType = 'B'
+func getRequestDeviceType(UA, redirectorVersion string) (string, any, any) {
+	deviceType := ""
+	rUA := uaParser.Parse(UA)
+	match, matchErr := regexp.MatchString("^([0-9]+.)?([0-9]+)$", redirectorVersion)
+	if match && matchErr == nil {
+		deviceType = "C"
+	} else if rUA.IsDesktop() {
+		deviceType = "D"
+	} else if rUA.IsMobile() || rUA.IsTablet() {
+		deviceType = "M"
+	} else if rUA.IsBot() {
+		deviceType = "B"
 	} else {
-		deviceType = 'U'
+		deviceType = "U"
 	}
-	return deviceType
+	return string(deviceType), rUA.GetBrowser(), rUA.GetOS()
 }

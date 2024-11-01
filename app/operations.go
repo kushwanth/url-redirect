@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -138,53 +138,93 @@ func stats(db *pgxpool.Pool) http.HandlerFunc {
 			http.Error(w, badRequest, http.StatusBadRequest)
 			return
 		}
-		statsData := map[string][]LogQueryData{}
-		statsKey := [...]string{"path", "status", "browser", "os", "country", "devices", "time"}
-		statsQueries := [...]string{
-			"SELECT path AS data_item, count(id) AS item_count FROM urlredirects_analytics WHERE timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY path;",
-			"SELECT status AS data_item, count(id) AS item_count FROM urlredirects_analytics WHERE timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status;",
-			"SELECT browser AS data_item, count(id) AS item_count FROM urlredirects_analytics WHERE timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY browser;",
-			"SELECT os AS data_item, count(id) AS item_count FROM urlredirects_analytics WHERE timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY os;",
-			"SELECT country AS data_item, count(id) AS item_count FROM urlredirects_analytics WHERE timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY country;",
-			"SELECT device_type AS data_item, count(id) AS item_count FROM urlredirects_analytics WHERE timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY device_type;",
-			"SELECT status AS data_item, avg(processing_time) AS item_count FROM urlredirects_analytics WHERE timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status;",
-		}
-		queryBatch := pgx.Batch{}
-		for _, statsQuery := range statsQueries {
-			queryBatch.Queue(statsQuery, startTime.Unix(), endTime.Unix())
-		}
-		queryResults := db.SendBatch(context.Background(), &queryBatch)
-		defer queryResults.Close()
-		for i, _ := range statsQueries {
-			var dataQueryList []LogQueryData
-			rows, err := queryResults.Query()
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var dataItem LogQueryData
-				rowErr := rows.Scan(&dataItem.DataItem, &dataItem.ItemCount)
-				if rowErr != nil {
-					log.Println("stats ->", rowErr.Error())
-					continue
-				}
-				if len(strings.TrimSpace(dataItem.DataItem)) <= 0 {
-					dataItem.DataItem = "Other"
-				}
-				dataQueryList = append(dataQueryList, dataItem)
-			}
-			statsData[statsKey[i]] = dataQueryList
-		}
-		jsonStatsData, jsonErr := json.Marshal(statsData)
-		if jsonErr != nil {
-			log.Println(jsonErr.Error())
+		// statsKey := [...]string{"path", "status", "browser", "os", "country", "devices", "time"}
+		// statsQueries := [...]string{
+		// 	"SELECT path AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY path;",
+		// 	"SELECT status AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status;",
+		// 	"SELECT browser AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY browser;",
+		// 	"SELECT os AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY os;",
+		// 	"SELECT country AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY country;",
+		// 	"SELECT device_type AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY device_type;",
+		// 	"SELECT status AS stat_key, avg(processing_time) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status;",
+		// }
+		// queryBatch := pgx.Batch{}
+		// for _, statsQuery := range statsQueries {
+		// 	queryBatch.Queue(statsQuery, startTime.Unix(), endTime.Unix())
+		// }
+		// queryResults := db.SendBatch(context.Background(), &queryBatch)
+		// defer queryResults.Close()
+		// for i, _ := range statsQueries {
+		// 	var dataQueryList []LogQueryData
+		// 	rows, err := queryResults.Query()
+		// 	if err != nil {
+		// 		log.Println(err)
+		// 		continue
+		// 	}
+		// 	defer rows.Close()
+		// 	for rows.Next() {
+		// 		var dataItem LogQueryData
+		// 		rowErr := rows.Scan(&dataItem.DataItem, &dataItem.ItemCount)
+		// 		if rowErr != nil {
+		// 			log.Println("stats ->", rowErr.Error())
+		// 			continue
+		// 		}
+		// 		if len(strings.TrimSpace(dataItem.DataItem)) <= 0 {
+		// 			dataItem.DataItem = "Other"
+		// 		}
+		// 		dataQueryList = append(dataQueryList, dataItem)
+		// 	}
+		// 	statsData[statsKey[i]] = dataQueryList
+		// }
+		statsData := LogStatsData{}
+		queryResults, queryErr := db.Query(context.Background(),
+			`SELECT 'path' AS col, path AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY path UNION ALL 
+		 SELECT 'status' AS col, CAST(status AS VARCHAR) AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status UNION ALL 
+		 SELECT 'browser' AS col, browser AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY browser UNION ALL 
+		 SELECT 'os' AS col, os AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY os UNION ALL 
+		 SELECT 'country' AS col, country AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY country UNION ALL 
+		 SELECT 'devices' AS col, device_type AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY device_type UNION ALL 
+		 SELECT 'time' AS col, CAST(status AS VARCHAR) AS stat_key, CAST(avg(processing_time) AS INTEGER) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status;`,
+			startTime.Unix(), endTime.Unix())
+		if queryErr != nil {
+			log.Println(queryErr.Error())
 			http.Error(w, internalError, http.StatusInternalServerError)
 			return
 		}
+		defer queryResults.Close()
+		for queryResults.Next() {
+			var dataItem LogQueryData
+			var dataKey string
+			var statKey pgtype.Text
+			rowErr := queryResults.Scan(&dataKey, &statKey, &dataItem.StatCount)
+			if rowErr != nil {
+				log.Println("stats ->", rowErr.Error())
+				continue
+			}
+			if len(strings.TrimSpace(statKey.String)) <= 0 {
+				dataItem.StatKey = "Other"
+			} else {
+				dataItem.StatKey = strings.TrimSpace(statKey.String)
+			}
+			switch {
+			case dataKey == "path":
+				statsData.Path = append(statsData.Path, dataItem)
+			case dataKey == "browser":
+				statsData.Browser = append(statsData.Browser, dataItem)
+			case dataKey == "status":
+				statsData.Status = append(statsData.Status, dataItem)
+			case dataKey == "os":
+				statsData.Os = append(statsData.Os, dataItem)
+			case dataKey == "country":
+				statsData.Country = append(statsData.Country, dataItem)
+			case dataKey == "devices":
+				statsData.Devices = append(statsData.Devices, dataItem)
+			case dataKey == "time":
+				statsData.Time = append(statsData.Time, dataItem)
+			}
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(jsonStatsData)
+		w.Write(toJson(statsData))
 	})
 }

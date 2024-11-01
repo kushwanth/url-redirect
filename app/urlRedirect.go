@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/oschwald/geoip2-golang"
 )
 
 func about(w http.ResponseWriter, r *http.Request) {
@@ -24,14 +25,14 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(notFoundMessage))
 }
 
-func initRouter(dbpool *pgxpool.Pool) *chi.Mux {
+func initRouter(dbpool *pgxpool.Pool, geoIpDb *geoip2.Reader) *chi.Mux {
 	router := chi.NewRouter()
 	actionsRouter := chi.NewRouter()
 	operationsRouter := chi.NewRouter()
-	router.Use(logRequest(dbpool))
+	router.Use(middleware.Heartbeat("/app/health"))
+	router.Use(logRequest(dbpool, geoIpDb))
 	router.Use(httprate.Limit(10, time.Minute))
 	router.Use(middleware.AllowContentType("application/json"))
-	router.Use(middleware.Heartbeat("/app/health"))
 	actionsRouter.Use(verifyApiKey)
 	operationsRouter.Use(verifyApiKey)
 	actionsRouter.Get("/info/{id}", redirectInfo(dbpool))
@@ -75,7 +76,12 @@ func main() {
 		defer os.Exit(1)
 	}
 	log.Println("DB initialized successfully")
-	router := initRouter(dbpool)
+	geoIpDb, geoIpErr := geoip2.Open("./GeoLite2-Country.mmdb")
+	if geoIpErr != nil {
+		log.Panicln(geoIpErr)
+	}
+	defer geoIpDb.Close()
+	router := initRouter(dbpool, geoIpDb)
 	log.Println("Sever running at Port 8082")
 	log.Fatalln(http.ListenAndServe("127.0.0.1:8082", router))
 }

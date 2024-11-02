@@ -30,7 +30,7 @@ func (w *AppResponseWriter) Status() int {
 func verifyApiKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKey := os.Getenv("API_KEY")
-		apiKeyHeader := r.Header.Get("X-Redirect-API-KEY")
+		apiKeyHeader := r.Header.Get("x-url-redirect-token")
 		if apiKeyHeader != apiKey {
 			http.Error(w, errorMessage, http.StatusUnauthorized)
 			return
@@ -57,7 +57,7 @@ func logRequest(db *pgxpool.Pool, geoIpDb *geoip2.Reader) func(http.Handler) htt
 			}
 			next.ServeHTTP(appResWriter, r)
 			processingTime := time.Since(startTime).Milliseconds()
-			deviceType, browser, os := getRequestDeviceType(r.Header.Get("User-Agent"), r.Header.Get("X-Redirector-Version"))
+			deviceType, browser, os := getRequestDeviceType(r.Header.Get("User-Agent"), r.Header.Get("x-url-redirect-version"))
 			_, dbEventErr := db.Exec(context.Background(), `INSERT INTO UrlRedirects_Analytics (path, log_timestamp, status, country, processing_time, ip_address, browser, os, device_type) VALUES ($1,now(),$2,$3,$4,$5,$6,$7,$8) RETURNING id`, rPath, appResWriter.statusCode, rCountry, processingTime, rIP, browser, os, deviceType)
 			if dbEventErr != nil {
 				log.Println(dbEventErr.Error())

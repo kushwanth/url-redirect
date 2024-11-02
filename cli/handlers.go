@@ -149,7 +149,7 @@ func searchUrlRedirect(cCtx *cli.Context) error {
 	}
 	var response []Redirect
 	reqBody := OpsData{Data: path}
-	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "searchPath?page=" + strconv.Itoa(page)
+	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "search?page=" + strconv.Itoa(page)
 	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
 	res := apiService(http.MethodPost, endPoint, reqBodyBytes)
 	if res.StatusCode != http.StatusOK {
@@ -168,7 +168,7 @@ func urlRedirectExists(cCtx *cli.Context) error {
 	}
 	var response Redirect
 	reqBody := OpsData{Data: uri}
-	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "destinationExists"
+	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "check"
 	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
 	res := apiService(http.MethodPost, endPoint, reqBodyBytes)
 	if res.StatusCode != http.StatusOK {

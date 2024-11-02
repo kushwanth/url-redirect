@@ -15,7 +15,7 @@ var errorBytes []byte
 const httpsProtocol = "https://"
 const actionsApiEndpoint = "/api/action/"
 const operationsApiEndpoint = "/api/operations/"
-const cliVersion = "1.5"
+const cliVersion = "2.0"
 
 const commandHelpText = `NAME: 
    {{.Name}} - {{.Usage}}
@@ -124,8 +124,8 @@ func apiService(method string, apiEndpoint string, data io.Reader) *http.Respons
 	if err != nil {
 		respondAndExit("Request Creation failed", err)
 	}
-	req.Header.Set("X-Redirect-API-KEY", apiKey)
-	req.Header.Set("X-Redirector-Version", cliVersion)
+	req.Header.Set("x-url-redirect-token", apiKey)
+	req.Header.Set("x-url-redirect-version", cliVersion)
 	req.Header.Set("Content-Type", "application/json")
 	if !isAPIUp() {
 		respondAndExit("API Down")

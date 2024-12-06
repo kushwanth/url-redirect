@@ -9,7 +9,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o url-redirect .
 FROM alpine:latest
 
 WORKDIR /root/
-RUN wget https://github.com/P3TERX/GeoLite.mmdb/releases/download/2024.11.01/GeoLite2-Country.mmdb
+RUN wget https://git.io/GeoLite2-Country.mmdb
 COPY --from=builder /app/url-redirect .
 EXPOSE 8082
 

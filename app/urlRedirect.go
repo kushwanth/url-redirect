@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/httprate"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/oschwald/geoip2-golang"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func about(w http.ResponseWriter, r *http.Request) {
@@ -31,6 +32,7 @@ func initRouter(dbpool *pgxpool.Pool, geoIpDb *geoip2.Reader) *chi.Mux {
 	operationsRouter := chi.NewRouter()
 	router.Use(middleware.Heartbeat("/app/health"))
 	router.Use(logRequest(dbpool, geoIpDb))
+	router.Use(prometheusMiddleware)
 	router.Use(httprate.Limit(10, time.Minute))
 	router.Use(middleware.AllowContentType("application/json"))
 	actionsRouter.Use(verifyApiKey)
@@ -48,6 +50,7 @@ func initRouter(dbpool *pgxpool.Pool, geoIpDb *geoip2.Reader) *chi.Mux {
 	router.Get("/*", handleRedirect(dbpool))
 	router.Get("/notfound", notFound)
 	router.Get("/about", about)
+	router.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
 	router.Mount("/api/action", actionsRouter)
 	router.Mount("/api/operations", operationsRouter)
 	router.NotFound(notFound)
@@ -81,6 +84,7 @@ func main() {
 		log.Panicln(geoIpErr)
 	}
 	defer geoIpDb.Close()
+	initMetrics()
 	router := initRouter(dbpool, geoIpDb)
 	log.Println("Sever running at Port 8082")
 	log.Fatalln(http.ListenAndServe("127.0.0.1:8082", router))

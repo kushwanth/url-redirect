@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"runtime/metrics"
 	"strconv"
 	"strings"
 
@@ -29,6 +32,18 @@ const internalError = "Internal Error"
 const dbLimit = 1
 const pageLimit = 10
 const httpsProtocol = "https://"
+
+var metricsList = map[string]string{
+	"/gc/heap/allocs:bytes":               "go_memstats_alloc_bytes_total",
+	"/gc/heap/frees:bytes":                "go_memstats_free_bytes_total",
+	"/memory/classes/heap/free:bytes":     "go_memstats_heap_bytes_free",
+	"/memory/classes/heap/released:bytes": "go_memstats_heap_bytes_released",
+	"/memory/classes/heap/stacks:bytes":   "go_memstats_stack_bytes_reserved",
+	"/memory/classes/total:bytes":         "go_memstats_sys_bytes",
+	"/memory/classes/heap/unused:bytes":   "go_memstats_heap_bytes_unused",
+	"/sched/goroutines:goroutines":        "go_goroutines",
+	"/sync/mutex/wait/total:seconds":      "go_runtime_mutex_wait_total",
+}
 
 const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
     id SERIAL PRIMARY KEY,
@@ -87,6 +102,9 @@ type OpsData struct {
 type StatsTime struct {
 	Start int64 `json:"start,omitempty"`
 	End   int64 `json:"end,omitempty"`
+}
+
+type runtimeGuages struct {
 }
 
 func validateAndFormatURL(uri string) (string, bool) {
@@ -184,4 +202,77 @@ func getRequestDeviceType(UA, redirectorVersion string) (string, any, any) {
 		deviceType = "U"
 	}
 	return string(deviceType), rUA.GetBrowser(), rUA.GetOS()
+}
+
+func getRequestFunction(path string, statusCode int) (string, bool) {
+	requestFunction := "misc"
+	apiPathRegex := regexp.MustCompile(`/api/\\w*`)
+	isApiRequest := apiPathRegex.MatchString(path)
+	if statusCode >= http.StatusMovedPermanently && statusCode <= http.StatusPermanentRedirect {
+		requestFunction = "redirect"
+	} else if statusCode == http.StatusNotFound {
+		requestFunction = "not_found"
+	} else if statusCode >= http.StatusOK && statusCode <= http.StatusAlreadyReported {
+		requestFunction = "request_success"
+	} else if statusCode == http.StatusUnauthorized {
+		requestFunction = "request_unauthorized"
+	} else if statusCode == http.StatusForbidden {
+		requestFunction = "request_forbidden"
+	} else if statusCode == http.StatusMethodNotAllowed {
+		requestFunction = "request_method_not_allowed"
+	} else if statusCode >= http.StatusBadRequest && statusCode <= http.StatusUnavailableForLegalReasons {
+		requestFunction = "request_client_error"
+	} else if statusCode >= http.StatusInternalServerError && statusCode <= http.StatusNetworkAuthenticationRequired {
+		requestFunction = "request_server_error"
+	} else {
+		requestFunction = "request_misc"
+	}
+	if isApiRequest {
+		requestFunction = "api_" + requestFunction
+	}
+	return requestFunction, isApiRequest
+}
+
+func getRuntimeMetrics() map[string]float64 {
+	samples := make([]metrics.Sample, len(metricsList))
+	i := 0
+	for k := range metricsList {
+		samples[i].Name = k
+		i++
+	}
+	metrics.Read(samples)
+	runtimeMetrics := map[string]float64{}
+	for _, sample := range samples {
+		value := sample.Value
+		name := metricsList[sample.Name]
+		switch value.Kind() {
+		case metrics.KindUint64:
+			runtimeMetrics[name] = float64(value.Uint64())
+		case metrics.KindFloat64:
+			runtimeMetrics[name] = value.Float64()
+		case metrics.KindFloat64Histogram:
+			runtimeMetrics[name] = medianBucket(value.Float64Histogram())
+		case metrics.KindBad:
+			panic("bug in runtime/metrics package!")
+		default:
+			fmt.Printf("%s: unexpected metric Kind: %v\n", name, value.Kind())
+		}
+	}
+	return runtimeMetrics
+}
+
+func medianBucket(h *metrics.Float64Histogram) float64 {
+	total := uint64(0)
+	for _, count := range h.Counts {
+		total += count
+	}
+	thresh := total / 2
+	total = 0
+	for i, count := range h.Counts {
+		total += count
+		if total >= thresh {
+			return h.Buckets[i]
+		}
+	}
+	panic("should not happen")
 }

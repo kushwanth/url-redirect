@@ -15,7 +15,7 @@ var errorBytes []byte
 const httpsProtocol = "https://"
 const actionsApiEndpoint = "/api/action/"
 const operationsApiEndpoint = "/api/operations/"
-const cliVersion = "2.0"
+const cliVersion = "2.1"
 
 const commandHelpText = `NAME: 
    {{.Name}} - {{.Usage}}
@@ -177,25 +177,25 @@ func consoleStatsListWriter(statCategory string, statsList []LogStatsDataList) {
 func consoleStatsWriter(statsData LogStatsData) {
 	consoleStatsListWriter("Path", statsData.Path)
 	consoleStatsListWriter("Status", statsData.Status)
-	consoleStatsListWriter("Browser", statsData.Browser)
-	consoleStatsListWriter("OS", statsData.Os)
-	consoleStatsListWriter("Time", statsData.Time)
-	consoleStatsListWriter("Country", statsData.Country)
-	sort.Slice(statsData.Devices, func(x, y int) bool {
-		return statsData.Devices[x].StatCount > statsData.Devices[y].StatCount
-	})
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "Device\tCount")
-	fmt.Fprintln(w, "------\t-----")
-	for _, deviceItem := range statsData.Devices {
-		deviceKey, err := deviceTypeMapper[deviceItem.StatKey]
-		if !err {
-			deviceKey = deviceItem.StatKey
-		}
-		fmt.Fprintf(w, "%s\t%v\n", deviceKey, deviceItem.StatCount)
-	}
-	fmt.Fprintln(w)
-	w.Flush()
+	// consoleStatsListWriter("Browser", statsData.Browser)
+	// consoleStatsListWriter("OS", statsData.Os)
+	// consoleStatsListWriter("Time", statsData.Time)
+	// consoleStatsListWriter("Country", statsData.Country)
+	// sort.Slice(statsData.Devices, func(x, y int) bool {
+	// 	return statsData.Devices[x].StatCount > statsData.Devices[y].StatCount
+	// })
+	// w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	// fmt.Fprintln(w, "Device\tCount")
+	// fmt.Fprintln(w, "------\t-----")
+	// for _, deviceItem := range statsData.Devices {
+	// 	deviceKey, err := deviceTypeMapper[deviceItem.StatKey]
+	// 	if !err {
+	// 		deviceKey = deviceItem.StatKey
+	// 	}
+	// 	fmt.Fprintf(w, "%s\t%v\n", deviceKey, deviceItem.StatCount)
+	// }
+	// fmt.Fprintln(w)
+	// w.Flush()
 	defer os.Exit(0)
 }
 

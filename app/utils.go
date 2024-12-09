@@ -9,18 +9,16 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"runtime/metrics"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/medama-io/go-useragent"
 	"golang.org/x/exp/rand"
 )
 
 var errorBytes []byte
-var uaParser = useragent.NewParser()
 
 const errorMessage = "Error"
 const notFoundMessage = "Are you Lost??"
@@ -42,8 +40,9 @@ var metricsList = map[string]string{
 	"/memory/classes/total:bytes":         "go_memstats_sys_bytes",
 	"/memory/classes/heap/unused:bytes":   "go_memstats_heap_bytes_unused",
 	"/sched/goroutines:goroutines":        "go_goroutines",
-	"/sync/mutex/wait/total:seconds":      "go_runtime_mutex_wait_total",
 }
+
+var pathsToSkipMiddleware = []string{"/metrics", "/favicon.ico"}
 
 const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
     id SERIAL PRIMARY KEY,
@@ -56,7 +55,7 @@ const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
 
 const urlredirectAnalyticsSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects_Analytics (
   id SERIAL PRIMARY KEY,
-  path VARCHAR(29) NOT NULL,       
+  path VARCHAR(29) NOT NULL,
   log_timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   status int NOT NULL,
   country VARCHAR(3),
@@ -102,9 +101,6 @@ type OpsData struct {
 type StatsTime struct {
 	Start int64 `json:"start,omitempty"`
 	End   int64 `json:"end,omitempty"`
-}
-
-type runtimeGuages struct {
 }
 
 func validateAndFormatURL(uri string) (string, bool) {
@@ -186,28 +182,27 @@ func toJson(data interface{}) []byte {
 	}
 }
 
-func getRequestDeviceType(UA, redirectorVersion string) (string, any, any) {
-	deviceType := ""
-	rUA := uaParser.Parse(UA)
-	match, matchErr := regexp.MatchString("^([0-9]+.)?([0-9]+)$", redirectorVersion)
-	if match && matchErr == nil {
-		deviceType = "C"
-	} else if rUA.IsDesktop() {
-		deviceType = "D"
-	} else if rUA.IsMobile() || rUA.IsTablet() {
-		deviceType = "M"
-	} else if rUA.IsBot() {
-		deviceType = "B"
-	} else {
-		deviceType = "U"
-	}
-	return string(deviceType), rUA.GetBrowser(), rUA.GetOS()
-}
+// func getRequestDeviceType(UA, redirectorVersion string) (string, any, any) {
+// 	deviceType := ""
+// 	rUA := uaParser.Parse(UA)
+// 	match, matchErr := regexp.MatchString("^([0-9]+.)?([0-9]+)$", redirectorVersion)
+// 	if match && matchErr == nil {
+// 		deviceType = "C"
+// 	} else if rUA.IsDesktop() {
+// 		deviceType = "D"
+// 	} else if rUA.IsMobile() || rUA.IsTablet() {
+// 		deviceType = "M"
+// 	} else if rUA.IsBot() {
+// 		deviceType = "B"
+// 	} else {
+// 		deviceType = "U"
+// 	}
+// 	return string(deviceType), rUA.GetBrowser(), rUA.GetOS()
+// }
 
 func getRequestFunction(path string, statusCode int) (string, bool) {
 	requestFunction := "misc"
-	apiPathRegex := regexp.MustCompile(`/api/\\w*`)
-	isApiRequest := apiPathRegex.MatchString(path)
+	isApiRequest := strings.Contains(path, "api/")
 	if statusCode >= http.StatusMovedPermanently && statusCode <= http.StatusPermanentRedirect {
 		requestFunction = "redirect"
 	} else if statusCode == http.StatusNotFound {
@@ -275,4 +270,8 @@ func medianBucket(h *metrics.Float64Histogram) float64 {
 		}
 	}
 	panic("should not happen")
+}
+
+func skipMiddleware(path string) bool {
+	return slices.Contains(pathsToSkipMiddleware, path)
 }

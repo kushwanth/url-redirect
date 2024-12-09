@@ -11,7 +11,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/oschwald/geoip2-golang"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -26,12 +25,12 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(notFoundMessage))
 }
 
-func initRouter(dbpool *pgxpool.Pool, geoIpDb *geoip2.Reader) *chi.Mux {
+func initRouter(dbpool *pgxpool.Pool) *chi.Mux {
 	router := chi.NewRouter()
 	actionsRouter := chi.NewRouter()
 	operationsRouter := chi.NewRouter()
 	router.Use(middleware.Heartbeat("/app/health"))
-	router.Use(logRequest(dbpool, geoIpDb))
+	router.Use(logRequest(dbpool))
 	router.Use(prometheusMiddleware)
 	router.Use(httprate.Limit(10, time.Minute))
 	router.Use(middleware.AllowContentType("application/json"))
@@ -68,24 +67,19 @@ func main() {
 		os.Exit(1)
 	}
 	defer dbpool.Close()
-	_, db_init_err1 := dbpool.Exec(context.Background(), urlredirectSchema)
-	if db_init_err1 != nil {
-		log.Fatalf("Error creating URL Redirects table: %v\n", db_init_err1)
-		defer os.Exit(1)
-	}
-	_, db_init_err2 := dbpool.Exec(context.Background(), urlredirectAnalyticsSchema)
-	if db_init_err2 != nil {
-		log.Fatalf("Error creating URL Redirects Analytics table: %v\n", db_init_err2)
+	_, db_init_err := dbpool.Exec(context.Background(), urlredirectSchema)
+	if db_init_err != nil {
+		log.Fatalf("Error creating URL Redirects table: %v\n", db_init_err)
 		defer os.Exit(1)
 	}
 	log.Println("DB initialized successfully")
-	geoIpDb, geoIpErr := geoip2.Open("./GeoLite2-Country.mmdb")
-	if geoIpErr != nil {
-		log.Panicln(geoIpErr)
-	}
-	defer geoIpDb.Close()
+	// geoIpDb, geoIpErr := geoip2.Open("./GeoLite2-Country.mmdb")
+	// if geoIpErr != nil {
+	// 	log.Panicln(geoIpErr)
+	// }
+	// defer geoIpDb.Close()
 	initMetrics()
-	router := initRouter(dbpool, geoIpDb)
+	router := initRouter(dbpool)
 	log.Println("Sever running at Port 8082")
 	log.Fatalln(http.ListenAndServe("127.0.0.1:8082", router))
 }

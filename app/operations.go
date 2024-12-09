@@ -138,53 +138,17 @@ func stats(db *pgxpool.Pool) http.HandlerFunc {
 			http.Error(w, badRequest, http.StatusBadRequest)
 			return
 		}
-		// statsKey := [...]string{"path", "status", "browser", "os", "country", "devices", "time"}
-		// statsQueries := [...]string{
-		// 	"SELECT path AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY path;",
-		// 	"SELECT status AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status;",
-		// 	"SELECT browser AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY browser;",
-		// 	"SELECT os AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY os;",
-		// 	"SELECT country AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY country;",
-		// 	"SELECT device_type AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY device_type;",
-		// 	"SELECT status AS stat_key, avg(processing_time) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status;",
-		// }
-		// queryBatch := pgx.Batch{}
-		// for _, statsQuery := range statsQueries {
-		// 	queryBatch.Queue(statsQuery, startTime.Unix(), endTime.Unix())
-		// }
-		// queryResults := db.SendBatch(context.Background(), &queryBatch)
-		// defer queryResults.Close()
-		// for i, _ := range statsQueries {
-		// 	var dataQueryList []LogQueryData
-		// 	rows, err := queryResults.Query()
-		// 	if err != nil {
-		// 		log.Println(err)
-		// 		continue
-		// 	}
-		// 	defer rows.Close()
-		// 	for rows.Next() {
-		// 		var dataItem LogQueryData
-		// 		rowErr := rows.Scan(&dataItem.DataItem, &dataItem.ItemCount)
-		// 		if rowErr != nil {
-		// 			log.Println("stats ->", rowErr.Error())
-		// 			continue
-		// 		}
-		// 		if len(strings.TrimSpace(dataItem.DataItem)) <= 0 {
-		// 			dataItem.DataItem = "Other"
-		// 		}
-		// 		dataQueryList = append(dataQueryList, dataItem)
-		// 	}
-		// 	statsData[statsKey[i]] = dataQueryList
-		// }
 		statsData := LogStatsData{}
+		/*
+			SELECT 'browser' AS col, browser AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY browser UNION ALL
+			 SELECT 'os' AS col, os AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY os UNION ALL
+			 SELECT 'country' AS col, country AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY country UNION ALL
+			 SELECT 'devices' AS col, device_type AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY device_type UNION ALL
+		*/
 		queryResults, queryErr := db.Query(context.Background(),
 			`SELECT 'path' AS col, path AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY path UNION ALL 
-		 SELECT 'status' AS col, CAST(status AS VARCHAR) AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status UNION ALL 
-		 SELECT 'browser' AS col, browser AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY browser UNION ALL 
-		 SELECT 'os' AS col, os AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY os UNION ALL 
-		 SELECT 'country' AS col, country AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY country UNION ALL 
-		 SELECT 'devices' AS col, device_type AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY device_type UNION ALL 
-		 SELECT 'time' AS col, CAST(status AS VARCHAR) AS stat_key, CAST(avg(processing_time) AS INTEGER) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status;`,
+			 SELECT 'status' AS col, CAST(status AS VARCHAR) AS stat_key, count(id) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status UNION ALL 
+			 SELECT 'time' AS col, CAST(status AS VARCHAR) AS stat_key, CAST(avg(processing_time) AS INTEGER) AS stat_count FROM urlredirects_analytics WHERE log_timestamp BETWEEN TO_TIMESTAMP($1) AND TO_TIMESTAMP($2) GROUP BY status;`,
 			startTime.Unix(), endTime.Unix())
 		if queryErr != nil {
 			log.Println(queryErr.Error())
@@ -209,16 +173,16 @@ func stats(db *pgxpool.Pool) http.HandlerFunc {
 			switch {
 			case dataKey == "path":
 				statsData.Path = append(statsData.Path, dataItem)
-			case dataKey == "browser":
-				statsData.Browser = append(statsData.Browser, dataItem)
 			case dataKey == "status":
 				statsData.Status = append(statsData.Status, dataItem)
-			case dataKey == "os":
-				statsData.Os = append(statsData.Os, dataItem)
-			case dataKey == "country":
-				statsData.Country = append(statsData.Country, dataItem)
-			case dataKey == "devices":
-				statsData.Devices = append(statsData.Devices, dataItem)
+			// case dataKey == "browser":
+			// 	statsData.Browser = append(statsData.Browser, dataItem)
+			// case dataKey == "os":
+			// 	statsData.Os = append(statsData.Os, dataItem)
+			// case dataKey == "country":
+			// 	statsData.Country = append(statsData.Country, dataItem)
+			// case dataKey == "devices":
+			// 	statsData.Devices = append(statsData.Devices, dataItem)
 			case dataKey == "time":
 				statsData.Time = append(statsData.Time, dataItem)
 			}

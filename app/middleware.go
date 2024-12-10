@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/httprate"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -46,7 +47,7 @@ var responseStatus = prometheus.NewCounterVec(
 var httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "http_response_time_seconds",
 	Help:    "Duration of HTTP requests.",
-	Buckets: []float64{0.9, 2, 9},
+	Buckets: []float64{0.1, 0.5, 1, 5, 10},
 },
 	[]string{"function"},
 )
@@ -118,6 +119,13 @@ func initMetrics() {
 	}
 }
 
+func httpRateLimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httprate.Limit(getHttpRateLimit(), time.Second)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func verifyApiKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKey := os.Getenv("API_KEY")
@@ -134,26 +142,15 @@ func logRequest(db *pgxpool.Pool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			startTime := time.Now()
-			appResWriter := &AppResponseWriter{ResponseWriter: w}
-			rPath := r.URL.Path
-			// rIP := sql.NullString{String: r.Header.Get("X-Forwarded-For"), Valid: len(r.Header.Get("X-Forwarded-For")) > 0}
-			// rCountry := sql.NullString{String: "", Valid: false}
-			// if rIP.Valid && geoIpDb != nil {
-			// 	validIP := net.ParseIP(rIP.String)
-			// 	geoIpCountry, countryErr := geoIpDb.Country(validIP)
-			// 	if countryErr == nil {
-			// 		rCountry.String = geoIpCountry.Country.IsoCode
-			// 		rCountry.Valid = len(geoIpCountry.Country.IsoCode) <= 3 && len(geoIpCountry.Country.IsoCode) > 0
-			// 	}
-			// }
-			next.ServeHTTP(appResWriter, r)
+			reqPath := r.URL.Path
+			appResponse := &AppResponseWriter{ResponseWriter: w}
+			next.ServeHTTP(appResponse, r)
 			processingTime := time.Since(startTime).Milliseconds()
-			log.Printf("%s %s %d %vms\n", r.Method, rPath, appResWriter.statusCode, processingTime)
-			// deviceType, browser, os := getRequestDeviceType(r.Header.Get("User-Agent"), r.Header.Get("x-url-redirect-version"))
+			log.Printf("%s %s %d %vms\n", r.Method, reqPath, appResponse.Status(), processingTime)
 			if !skipMiddleware(r.URL.Path) {
-				_, dbEventErr := db.Exec(context.Background(), `INSERT INTO UrlRedirects_Analytics (path, log_timestamp, status, processing_time) VALUES ($1,now(),$2,$3) RETURNING id`, rPath, appResWriter.statusCode, processingTime)
-				if dbEventErr != nil {
-					log.Println(dbEventErr.Error())
+				_, logReqDbErr := db.Exec(context.Background(), `INSERT INTO UrlRedirects_Analytics (path, log_timestamp, status, processing_time) VALUES ($1,now(),$2,$3) RETURNING id`, reqPath, appResponse.Status(), processingTime)
+				if logReqDbErr != nil {
+					log.Println(logReqDbErr.Error())
 				}
 			}
 		})
@@ -162,21 +159,21 @@ func logRequest(db *pgxpool.Pool) func(http.Handler) http.Handler {
 
 func prometheusMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
 		activeRequestsGauge.Inc()
 		reqPath := r.URL.Path
 		appResWriter := &AppResponseWriter{ResponseWriter: w}
-		startTime := time.Now()
 		next.ServeHTTP(appResWriter, r)
 		endTime := time.Since(startTime).Seconds()
-		statusCode := appResWriter.statusCode
+		statusCode := appResWriter.Status()
 		activeRequestsGauge.Dec()
 		if skipMiddleware(reqPath) {
 			return
 		}
 		responseStatus.WithLabelValues(strconv.Itoa(statusCode)).Inc()
-		totalRequestsByPath.WithLabelValues(reqPath).Inc()
 		totalRequests.Inc()
 		reqFunc, isApiReq := getRequestFunction(reqPath, statusCode)
+		totalRequestsByPath.WithLabelValues(reqFunc).Inc()
 		httpDuration.WithLabelValues(reqFunc).Observe(endTime)
 		if isApiReq {
 			apiLatencySummary.Observe(endTime)

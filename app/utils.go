@@ -3,12 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"runtime/metrics"
 	"slices"
 	"strconv"
@@ -58,12 +57,7 @@ const urlredirectAnalyticsSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects_Anal
   path VARCHAR(29) NOT NULL,
   log_timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   status int NOT NULL,
-  country VARCHAR(3),
-  processing_time bigint,
-  ip_address inet,
-  browser VARCHAR(16),
-  os VARCHAR(16),
-  device_type CHAR(1)
+  processing_time bigint
 );`
 
 type Redirect struct {
@@ -75,13 +69,9 @@ type Redirect struct {
 }
 
 type LogStatsData struct {
-	Path    []LogQueryData `json:"path,omitempty"`
-	Status  []LogQueryData `json:"status,omitempty"`
-	Country []LogQueryData `json:"country,omitempty"`
-	Time    []LogQueryData `json:"time,omitempty"`
-	Browser []LogQueryData `json:"browser,omitempty"`
-	Os      []LogQueryData `json:"os,omitempty"`
-	Devices []LogQueryData `json:"devices,omitempty"`
+	Path   []LogQueryData `json:"path,omitempty"`
+	Status []LogQueryData `json:"status,omitempty"`
+	Time   []LogQueryData `json:"time,omitempty"`
 }
 
 type LogQueryData struct {
@@ -129,8 +119,7 @@ func getRedirectUsingPath(path string, db *pgxpool.Pool) (Redirect, error) {
 	var responseData Redirect
 	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE path=$1 LIMIT $2", path, dbLimit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 	if db_err != nil {
-		log.Println("getRedirectUsingPath ->", db_err.Error())
-		return responseData, errors.New("database error")
+		return responseData, db_err
 	}
 	return responseData, nil
 }
@@ -139,20 +128,15 @@ func getRedirectUsingId(id int, db *pgxpool.Pool) (Redirect, error) {
 	var responseData Redirect
 	db_err := db.QueryRow(context.Background(), "SELECT id, path, url, updated_at::TEXT, inactive FROM UrlRedirects WHERE id=$1 LIMIT $2", id, dbLimit).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 	if db_err != nil {
-		log.Println("getRedirectUsingId ->", db_err.Error())
-		return responseData, errors.New("database error")
+		return responseData, db_err
 	}
 	return responseData, nil
 }
 
 func doesUrlExists(url string, db *pgxpool.Pool) bool {
 	var possibleId int
-	db_err := db.QueryRow(context.Background(), "SELECT id FROM UrlRedirects WHERE url=$1 LIMIT $2", url, dbLimit).Scan(&possibleId) //.Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
-	if db_err == nil {
-		return true
-	}
-	log.Println("doesUrlExists ->", db_err.Error())
-	return false
+	db_err := db.QueryRow(context.Background(), "SELECT id FROM UrlRedirects WHERE url=$1 LIMIT $2", url, dbLimit).Scan(&possibleId)
+	return db_err == nil
 }
 
 func generateShortRedirectPath() string {
@@ -175,55 +159,44 @@ func buildUri(url string) string {
 func toJson(data interface{}) []byte {
 	responseJson, err := json.Marshal(data)
 	if err != nil {
-		log.Println("JSONwriter ->", err.Error())
 		return errorBytes
 	} else {
 		return responseJson
 	}
 }
 
-// func getRequestDeviceType(UA, redirectorVersion string) (string, any, any) {
-// 	deviceType := ""
-// 	rUA := uaParser.Parse(UA)
-// 	match, matchErr := regexp.MatchString("^([0-9]+.)?([0-9]+)$", redirectorVersion)
-// 	if match && matchErr == nil {
-// 		deviceType = "C"
-// 	} else if rUA.IsDesktop() {
-// 		deviceType = "D"
-// 	} else if rUA.IsMobile() || rUA.IsTablet() {
-// 		deviceType = "M"
-// 	} else if rUA.IsBot() {
-// 		deviceType = "B"
-// 	} else {
-// 		deviceType = "U"
-// 	}
-// 	return string(deviceType), rUA.GetBrowser(), rUA.GetOS()
-// }
-
 func getRequestFunction(path string, statusCode int) (string, bool) {
-	requestFunction := "misc"
-	isApiRequest := strings.Contains(path, "api/")
+	requestFunction := "unknown"
+	apiRegex := regexp.MustCompile(`^/redirector/([^/]+)(?:/[^/]+)?$`)
+	isApiRequest := apiRegex.MatchString(path)
 	if statusCode >= http.StatusMovedPermanently && statusCode <= http.StatusPermanentRedirect {
 		requestFunction = "redirect"
 	} else if statusCode == http.StatusNotFound {
 		requestFunction = "not_found"
 	} else if statusCode >= http.StatusOK && statusCode <= http.StatusAlreadyReported {
-		requestFunction = "request_success"
+		requestFunction = "success"
+	} else if statusCode == http.StatusBadRequest {
+		requestFunction = "bad_request"
 	} else if statusCode == http.StatusUnauthorized {
-		requestFunction = "request_unauthorized"
+		requestFunction = "unauthorized"
 	} else if statusCode == http.StatusForbidden {
-		requestFunction = "request_forbidden"
+		requestFunction = "forbidden"
 	} else if statusCode == http.StatusMethodNotAllowed {
-		requestFunction = "request_method_not_allowed"
-	} else if statusCode >= http.StatusBadRequest && statusCode <= http.StatusUnavailableForLegalReasons {
-		requestFunction = "request_client_error"
-	} else if statusCode >= http.StatusInternalServerError && statusCode <= http.StatusNetworkAuthenticationRequired {
-		requestFunction = "request_server_error"
+		requestFunction = "method_not_allowed"
+	} else if statusCode == http.StatusPreconditionFailed {
+		requestFunction = "precondition_failed"
+	} else if statusCode == http.StatusInternalServerError {
+		requestFunction = "internal_error"
 	} else {
-		requestFunction = "request_misc"
+		requestFunction = strconv.Itoa(statusCode)
 	}
 	if isApiRequest {
-		requestFunction = "api_" + requestFunction
+		pathMatches := apiRegex.FindStringSubmatch(path)
+		if len(pathMatches) >= 2 && len(pathMatches[1]) > 0 {
+			requestFunction = strings.TrimSpace(pathMatches[1]) + "_" + requestFunction
+		} else {
+			requestFunction = "redirector_" + requestFunction
+		}
 	}
 	return requestFunction, isApiRequest
 }
@@ -274,4 +247,13 @@ func medianBucket(h *metrics.Float64Histogram) float64 {
 
 func skipMiddleware(path string) bool {
 	return slices.Contains(pathsToSkipMiddleware, path)
+}
+
+func getHttpRateLimit() int {
+	customRateLimit, customRateLimitErr := strconv.Atoi(strings.TrimSpace(os.Getenv("DATABASE_URL")))
+	if customRateLimitErr == nil {
+		return customRateLimit
+	} else {
+		return 9
+	}
 }

@@ -42,6 +42,9 @@ var metricsList = map[string]string{
 }
 
 var pathsToSkipMiddleware = []string{"/metrics", "/favicon.ico"}
+var apiKey = os.Getenv("API_KEY")
+var envHttpRateLimit = os.Getenv("HTTP_RATE_LIMIT")
+var logAdditionalHeaders = strings.Split(os.Getenv("LOG_ADDITIONAL_HEADERS"), ",")
 
 const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
     id SERIAL PRIMARY KEY,
@@ -57,7 +60,8 @@ const urlredirectAnalyticsSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects_Anal
   path VARCHAR(29) NOT NULL,
   log_timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   status int NOT NULL,
-  processing_time bigint
+  processing_time bigint,
+  additional_headers text
 );`
 
 type Redirect struct {
@@ -250,7 +254,7 @@ func skipMiddleware(path string) bool {
 }
 
 func getHttpRateLimit() int {
-	customRateLimit, customRateLimitErr := strconv.Atoi(strings.TrimSpace(os.Getenv("DATABASE_URL")))
+	customRateLimit, customRateLimitErr := strconv.Atoi(strings.TrimSpace(envHttpRateLimit))
 	if customRateLimitErr == nil {
 		return customRateLimit
 	} else {

@@ -4,8 +4,9 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
+	"net/textproto"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/httprate"
@@ -128,7 +129,6 @@ func httpRateLimit(next http.Handler) http.Handler {
 
 func verifyApiKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		apiKey := os.Getenv("API_KEY")
 		apiKeyHeader := r.Header.Get("x-url-redirect-token")
 		if apiKeyHeader != apiKey {
 			http.Error(w, errorMessage, http.StatusUnauthorized)
@@ -148,7 +148,11 @@ func logRequest(db *pgxpool.Pool) func(http.Handler) http.Handler {
 			processingTime := time.Since(startTime).Milliseconds()
 			log.Printf("%s %s %d %vms\n", r.Method, reqPath, appResponse.Status(), processingTime)
 			if !skipMiddleware(r.URL.Path) {
-				_, logReqDbErr := db.Exec(context.Background(), `INSERT INTO UrlRedirects_Analytics (path, log_timestamp, status, processing_time) VALUES ($1,now(),$2,$3) RETURNING id`, reqPath, appResponse.Status(), processingTime)
+				additionalHeaders := make([]string, len(logAdditionalHeaders))
+				for i, logAdditionalHeader := range logAdditionalHeaders {
+					additionalHeaders[i] = r.Header.Get(textproto.CanonicalMIMEHeaderKey(logAdditionalHeader))
+				}
+				_, logReqDbErr := db.Exec(context.Background(), `INSERT INTO UrlRedirects_Analytics (path, log_timestamp, status, processing_time, additional_headers) VALUES ($1,now(),$2,$3,$4) RETURNING id`, reqPath, appResponse.Status(), processingTime, strings.Join(additionalHeaders, "|"))
 				if logReqDbErr != nil {
 					log.Println(logReqDbErr.Error())
 				}

@@ -41,7 +41,7 @@ var metricsList = map[string]string{
 	"/sched/goroutines:goroutines":        "go_goroutines",
 }
 
-var pathsToSkipMiddleware = []string{"/metrics", "/favicon.ico"}
+var pathsToSkipLogging = []string{"/metrics", "/favicon.ico"}
 var apiKey = os.Getenv("API_KEY")
 var envHttpRateLimit = os.Getenv("HTTP_RATE_LIMIT")
 var logAdditionalHeaders = strings.Split(os.Getenv("LOG_ADDITIONAL_HEADERS"), ",")
@@ -51,13 +51,12 @@ const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
     path VARCHAR(29) NOT NULL UNIQUE,
     url VARCHAR(100) NOT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT now(),
-    inactive BOOLEAN NOT NULL DEFAULT FALSE,
-	is_private BOOLEAN NOT NULL DEFAULT FALSE
+    inactive BOOLEAN NOT NULL DEFAULT FALSE
 );`
 
 const urlredirectAnalyticsSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects_Analytics (
   id SERIAL PRIMARY KEY,
-  path VARCHAR(29) NOT NULL,
+  path VARCHAR(100) NOT NULL,
   log_timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   status int NOT NULL,
   processing_time bigint,
@@ -249,8 +248,8 @@ func medianBucket(h *metrics.Float64Histogram) float64 {
 	panic("should not happen")
 }
 
-func skipMiddleware(path string) bool {
-	return slices.Contains(pathsToSkipMiddleware, path)
+func skipLogging(path string) bool {
+	return slices.Contains(pathsToSkipLogging, path)
 }
 
 func getHttpRateLimit() int {

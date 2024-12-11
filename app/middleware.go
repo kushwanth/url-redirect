@@ -146,8 +146,8 @@ func logRequest(db *pgxpool.Pool) func(http.Handler) http.Handler {
 			appResponse := &AppResponseWriter{ResponseWriter: w}
 			next.ServeHTTP(appResponse, r)
 			processingTime := time.Since(startTime).Milliseconds()
-			log.Printf("%s %s %d %vms\n", r.Method, reqPath, appResponse.Status(), processingTime)
-			if !skipMiddleware(r.URL.Path) {
+			if !skipLogging(r.URL.Path) {
+				log.Printf("%s %s %d %vms\n", r.Method, reqPath, appResponse.Status(), processingTime)
 				additionalHeaders := make([]string, len(logAdditionalHeaders))
 				for i, logAdditionalHeader := range logAdditionalHeaders {
 					additionalHeaders[i] = r.Header.Get(textproto.CanonicalMIMEHeaderKey(logAdditionalHeader))
@@ -171,22 +171,21 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 		endTime := time.Since(startTime).Seconds()
 		statusCode := appResWriter.Status()
 		activeRequestsGauge.Dec()
-		if skipMiddleware(reqPath) {
-			return
-		}
-		responseStatus.WithLabelValues(strconv.Itoa(statusCode)).Inc()
-		totalRequests.Inc()
-		reqFunc, isApiReq := getRequestFunction(reqPath, statusCode)
-		totalRequestsByPath.WithLabelValues(reqFunc).Inc()
-		httpDuration.WithLabelValues(reqFunc).Observe(endTime)
-		if isApiReq {
-			apiLatencySummary.Observe(endTime)
-		}
-		if statusCode == http.StatusFound || statusCode == http.StatusNotFound {
-			redirectLatencySummary.Observe(endTime)
-		}
-		for runtimeMetricKey, runtimeMetricValue := range getRuntimeMetrics() {
-			runtimeMetricsGuages[runtimeMetricKey].Set(runtimeMetricValue)
+		if !skipLogging(reqPath) {
+			responseStatus.WithLabelValues(strconv.Itoa(statusCode)).Inc()
+			totalRequests.Inc()
+			reqFunc, isApiReq := getRequestFunction(reqPath, statusCode)
+			totalRequestsByPath.WithLabelValues(reqFunc).Inc()
+			httpDuration.WithLabelValues(reqFunc).Observe(endTime)
+			if isApiReq {
+				apiLatencySummary.Observe(endTime)
+			}
+			if statusCode == http.StatusFound || statusCode == http.StatusNotFound {
+				redirectLatencySummary.Observe(endTime)
+			}
+			for runtimeMetricKey, runtimeMetricValue := range getRuntimeMetrics() {
+				runtimeMetricsGuages[runtimeMetricKey].Set(runtimeMetricValue)
+			}
 		}
 	})
 }

@@ -7,15 +7,15 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"text/tabwriter"
 )
 
 var errorBytes []byte
 
 const httpsProtocol = "https://"
-const actionsApiEndpoint = "/api/action/"
-const operationsApiEndpoint = "/api/operations/"
-const cliVersion = "2.1"
+const redirectorApiEndpoint = "/redirector/"
+const cliVersion = "3.0"
 
 const commandHelpText = `NAME: 
    {{.Name}} - {{.Usage}}
@@ -47,14 +47,6 @@ GLOBAL OPTIONS:
 var apiHost, apiHostAvailable = os.LookupEnv("API_HOST")
 var apiKey, apiKeyAvailable = os.LookupEnv("API_KEY")
 
-var deviceTypeMapper = map[string]string{
-	"D": "Desktop/PC",
-	"M": "Mobile/Tablet",
-	"C": "Redirector CLI",
-	"B": "Bot",
-	"U": "Unknown",
-}
-
 type ResponseMessage struct {
 	Message string
 }
@@ -72,10 +64,6 @@ type UrlData struct {
 	Path string `json:"path,omitempty"`
 }
 
-type UrlParams struct {
-	page int
-}
-
 type OpsData struct {
 	Data string `json:"data,omitempty"`
 }
@@ -85,17 +73,13 @@ type StatsTime struct {
 	End   int64 `json:"end,omitempty"`
 }
 
-type LogStatsData struct {
-	Path    []LogStatsDataList `json:"path,omitempty"`
-	Status  []LogStatsDataList `json:"status,omitempty"`
-	Country []LogStatsDataList `json:"country,omitempty"`
-	Time    []LogStatsDataList `json:"time,omitempty"`
-	Browser []LogStatsDataList `json:"browser,omitempty"`
-	Os      []LogStatsDataList `json:"os,omitempty"`
-	Devices []LogStatsDataList `json:"devices,omitempty"`
+type LogStatsDataList struct {
+	Path   []LogStatsData `json:"path,omitempty"`
+	Status []LogStatsData `json:"status,omitempty"`
+	Time   []LogStatsData `json:"time,omitempty"`
 }
 
-type LogStatsDataList struct {
+type LogStatsData struct {
 	StatKey   string `json:"stat_key,omitempty"`
 	StatCount int    `json:"stat_count,omitempty"`
 }
@@ -160,13 +144,13 @@ func consoleDataListWriter(redirectList []Redirect) {
 	defer os.Exit(0)
 }
 
-func consoleStatsListWriter(statCategory string, statsList []LogStatsDataList) {
+func consoleStatsListWriter(statType string, statValue string, statsList []LogStatsData) {
 	sort.Slice(statsList, func(x, y int) bool {
-		return statsList[x].StatCount > statsList[y].StatCount
+		return statsList[x].StatKey > statsList[y].StatKey
 	})
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\n", statCategory, "Count")
-	fmt.Fprintln(w, "-------\t-----")
+	fmt.Fprintf(w, "%s\t%s\n", statType, statValue)
+	fmt.Fprintln(w, "----\t-----")
 	for _, statItem := range statsList {
 		fmt.Fprintf(w, "%s\t%v\n", statItem.StatKey, statItem.StatCount)
 	}
@@ -174,28 +158,26 @@ func consoleStatsListWriter(statCategory string, statsList []LogStatsDataList) {
 	defer w.Flush()
 }
 
-func consoleStatsWriter(statsData LogStatsData) {
-	consoleStatsListWriter("Path", statsData.Path)
-	consoleStatsListWriter("Status", statsData.Status)
-	// consoleStatsListWriter("Browser", statsData.Browser)
-	// consoleStatsListWriter("OS", statsData.Os)
-	// consoleStatsListWriter("Time", statsData.Time)
-	// consoleStatsListWriter("Country", statsData.Country)
-	// sort.Slice(statsData.Devices, func(x, y int) bool {
-	// 	return statsData.Devices[x].StatCount > statsData.Devices[y].StatCount
-	// })
-	// w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	// fmt.Fprintln(w, "Device\tCount")
-	// fmt.Fprintln(w, "------\t-----")
-	// for _, deviceItem := range statsData.Devices {
-	// 	deviceKey, err := deviceTypeMapper[deviceItem.StatKey]
-	// 	if !err {
-	// 		deviceKey = deviceItem.StatKey
-	// 	}
-	// 	fmt.Fprintf(w, "%s\t%v\n", deviceKey, deviceItem.StatCount)
-	// }
-	// fmt.Fprintln(w)
-	// w.Flush()
+func consoleStatsWriter(statsData LogStatsDataList) {
+	sort.Slice(statsData.Status, func(x, y int) bool {
+		return statsData.Status[x].StatKey > statsData.Status[y].StatKey
+	})
+	sort.Slice(statsData.Time, func(x, y int) bool {
+		return statsData.Time[x].StatKey > statsData.Time[y].StatKey
+	})
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "%s\t%s\t%s\n", "Status", "Count", "Avg Time(ms)")
+	fmt.Fprintln(w, "------\t-----\t------------")
+	for i, statItem := range statsData.Status {
+		httpStatusCode, httpStatusCodeErr := strconv.Atoi(statItem.StatKey)
+		if httpStatusCodeErr == nil {
+			statItem.StatKey = statItem.StatKey + "(" + http.StatusText(httpStatusCode) + ")"
+		}
+		fmt.Fprintf(w, "%s\t%v\t%v\n", statItem.StatKey, statItem.StatCount, statsData.Time[i].StatCount)
+	}
+	fmt.Fprintln(w)
+	defer w.Flush()
+	consoleStatsListWriter("Path", "Count", statsData.Path)
 	defer os.Exit(0)
 }
 

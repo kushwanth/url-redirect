@@ -27,14 +27,14 @@ func getUrlRedirect(cCtx *cli.Context) error {
 	if idErr != nil {
 		respondAndExit("Args Error", idErr)
 	}
-	var response Redirect
-	endPoint := httpsProtocol + apiHost + actionsApiEndpoint + "info/" + strconv.Itoa(id)
+	var redirectData Redirect
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "info/" + strconv.Itoa(id)
 	res := apiService(http.MethodGet, endPoint, nil)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleDataWriter(response)
+	json.NewDecoder(res.Body).Decode(&redirectData)
+	consoleDataWriter(redirectData)
 	return nil
 }
 
@@ -45,16 +45,16 @@ func addUrlRedirect(cCtx *cli.Context) error {
 	if pathErr != nil || uriErr != nil {
 		respondAndExit("Args Error", pathErr, uriErr)
 	}
-	var response Redirect
+	var redirectData Redirect
 	reqBody := UrlData{Url: uri, Path: path}
-	endPoint := httpsProtocol + apiHost + actionsApiEndpoint + "create"
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "create"
 	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
 	res := apiService(http.MethodPost, endPoint, reqBodyBytes)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleDataWriter(response)
+	json.NewDecoder(res.Body).Decode(&redirectData)
+	consoleDataWriter(redirectData)
 	return nil
 }
 
@@ -66,16 +66,16 @@ func updateUrlRedirect(cCtx *cli.Context) error {
 	if idErr != nil || pathErr != nil || uriErr != nil {
 		respondAndExit("Args Error", idErr, pathErr, uriErr)
 	}
-	var response Redirect
+	var redirectData Redirect
 	reqBody := Redirect{Id: id, Url: uri, Path: path, LastUpdated: time.Now().Format("YYYY-MM-DD hh:mm:ss"), Inactive: false}
-	endPoint := httpsProtocol + apiHost + actionsApiEndpoint + "update/" + strconv.Itoa(id)
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "update/" + strconv.Itoa(id)
 	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
 	res := apiService(http.MethodPut, endPoint, reqBodyBytes)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleDataWriter(response)
+	json.NewDecoder(res.Body).Decode(&redirectData)
+	consoleDataWriter(redirectData)
 	return nil
 }
 
@@ -86,16 +86,16 @@ func fixUrlRedirect(cCtx *cli.Context) error {
 	if pathErr != nil || uriErr != nil {
 		respondAndExit("Args Error", pathErr, uriErr)
 	}
-	var response Redirect
+	var redirectData Redirect
 	reqBody := UrlData{Url: uri, Path: path}
-	endPoint := httpsProtocol + apiHost + actionsApiEndpoint + "fix"
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "fix"
 	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
 	res := apiService(http.MethodPatch, endPoint, reqBodyBytes)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleDataWriter(response)
+	json.NewDecoder(res.Body).Decode(&redirectData)
+	consoleDataWriter(redirectData)
 	return nil
 }
 
@@ -105,14 +105,14 @@ func disableUrlRedirect(cCtx *cli.Context) error {
 	if idErr != nil {
 		respondAndExit("Args Error", idErr)
 	}
-	var response Redirect
-	endPoint := httpsProtocol + apiHost + actionsApiEndpoint + "disable/" + strconv.Itoa(id)
+	var redirectData Redirect
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "disable/" + strconv.Itoa(id)
 	res := apiService(http.MethodDelete, endPoint, nil)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleDataWriter(response)
+	json.NewDecoder(res.Body).Decode(&redirectData)
+	consoleDataWriter(redirectData)
 	return nil
 }
 
@@ -124,14 +124,14 @@ func listUrlRedirects(cCtx *cli.Context) error {
 	} else {
 		page = page * 10
 	}
-	var response []Redirect
-	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "list?page=" + strconv.Itoa(page)
+	var redirectDataList []Redirect
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "list?page=" + strconv.Itoa(page)
 	res := apiService(http.MethodGet, endPoint, nil)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleDataListWriter(response)
+	json.NewDecoder(res.Body).Decode(&redirectDataList)
+	consoleDataListWriter(redirectDataList)
 	return nil
 }
 
@@ -147,16 +147,16 @@ func searchUrlRedirect(cCtx *cli.Context) error {
 	} else {
 		page = page * 10
 	}
-	var response []Redirect
+	var redirectDataList []Redirect
 	reqBody := OpsData{Data: path}
-	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "search?page=" + strconv.Itoa(page)
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "search?page=" + strconv.Itoa(page)
 	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
 	res := apiService(http.MethodPost, endPoint, reqBodyBytes)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleDataListWriter(response)
+	json.NewDecoder(res.Body).Decode(&redirectDataList)
+	consoleDataListWriter(redirectDataList)
 	return nil
 }
 
@@ -166,16 +166,16 @@ func urlRedirectExists(cCtx *cli.Context) error {
 	if uriErr != nil {
 		respondAndExit("Args Error", uriErr)
 	}
-	var response Redirect
+	var redirectData Redirect
 	reqBody := OpsData{Data: uri}
-	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "check"
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "check"
 	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
 	res := apiService(http.MethodPost, endPoint, reqBodyBytes)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleDataWriter(response)
+	json.NewDecoder(res.Body).Decode(&redirectData)
+	consoleDataWriter(redirectData)
 	return nil
 }
 
@@ -185,30 +185,30 @@ func generateShortRedirect(cCtx *cli.Context) error {
 	if uriErr != nil {
 		respondAndExit("Args Error", uriErr)
 	}
-	var response Redirect
+	var redirectData Redirect
 	reqBody := OpsData{Data: uri}
-	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "generate"
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "generate"
 	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
 	res := apiService(http.MethodPost, endPoint, reqBodyBytes)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleDataWriter(response)
+	json.NewDecoder(res.Body).Decode(&redirectData)
+	consoleDataWriter(redirectData)
 	return nil
 }
 
 func getRedirectStats(cCtx *cli.Context) error {
 	timeFrame := ((int(cCtx.Value("days").(int)) * 24) + int(cCtx.Value("hours").(int))) * -1
 	reqBody := StatsTime{Start: time.Now().Add(time.Duration(timeFrame) * time.Hour).Unix(), End: time.Now().Unix()}
-	endPoint := httpsProtocol + apiHost + operationsApiEndpoint + "stats"
+	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "stats"
 	reqBodyBytes := bytes.NewBuffer(toJson(reqBody))
-	var response LogStatsData
+	var LogStatsDataList LogStatsDataList
 	res := apiService(http.MethodPost, endPoint, reqBodyBytes)
 	if res.StatusCode != http.StatusOK {
 		respondAndExit(res.Status)
 	}
-	json.NewDecoder(res.Body).Decode(&response)
-	consoleStatsWriter(response)
+	json.NewDecoder(res.Body).Decode(&LogStatsDataList)
+	consoleStatsWriter(LogStatsDataList)
 	return nil
 }

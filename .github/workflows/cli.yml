@@ -23,7 +23,7 @@ jobs:
       run: |
         cd cli/
         go mod tidy
-        go build -o redirector .
+        CGO_ENABLED=0 go build -ldflags="-s -w" -o redirector .
         tar -czvf redirector.tar.gz redirector 
 
     - name: Create Release Asset

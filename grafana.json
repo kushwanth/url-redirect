@@ -20,6 +20,7 @@
   "graphTooltip": 0,
   "id": 15,
   "links": [],
+  "liveNow": true,
   "panels": [
     {
       "collapsed": false,
@@ -129,7 +130,7 @@
         ]
       },
       "gridPos": {
-        "h": 14,
+        "h": 11,
         "w": 17,
         "x": 0,
         "y": 1
@@ -162,12 +163,12 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "http_requests_total_by_path{instance=\"localhost:8082\", path!=\"/metrics\"}",
+          "expr": "http_response_status_time_ms_count{instance=\"localhost:8082\"}",
           "format": "table",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": true,
-          "legendFormat": "{{path}}",
+          "legendFormat": "{{handler}}",
           "range": false,
           "refId": "requests_by_path",
           "useBackend": false
@@ -393,7 +394,7 @@
         ]
       },
       "gridPos": {
-        "h": 11,
+        "h": 8,
         "w": 7,
         "x": 17,
         "y": 4
@@ -419,7 +420,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "http_response_status{instance=\"localhost:8082\", status!=\"0\"}",
+          "expr": "requests_by_response_status{instance=\"localhost:8082\"}",
           "format": "table",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -434,12 +435,189 @@
       "type": "table"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "de6826mmbi2gwc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 29,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "dtdurationms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 13,
+        "x": 0,
+        "y": 12
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "timezone": [
+          "browser"
+        ],
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by(handler, status, le) (increase(http_response_status_time_ms_bucket{instance=\"localhost:8082\"}[$__interval])))",
+          "legendFormat": "{{handler}}({{status}})",
+          "range": true,
+          "refId": "95p"
+        }
+      ],
+      "title": "Request Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "de6826mmbi2gwc"
+      },
+      "description": "API metrics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "text",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 11,
+        "x": 13,
+        "y": 12
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": true,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "api_request_duration{instance=\"localhost:8082\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "quantile({{quantile}})",
+          "range": true,
+          "refId": "api_time",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "de6826mmbi2gwc"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "api_request_duration_count{instance=\"localhost:8082\"}",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "count",
+          "range": true,
+          "refId": "api_count",
+          "useBackend": false
+        }
+      ],
+      "title": "API Requests",
+      "type": "stat"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 21
       },
       "id": 5,
       "panels": [],
@@ -479,7 +657,7 @@
         "h": 4,
         "w": 2,
         "x": 0,
-        "y": 16
+        "y": 22
       },
       "id": 3,
       "options": {
@@ -546,7 +724,7 @@
         "h": 4,
         "w": 7,
         "x": 2,
-        "y": 16
+        "y": 22
       },
       "id": 6,
       "options": {
@@ -628,7 +806,7 @@
         "h": 4,
         "w": 11,
         "x": 9,
-        "y": 16
+        "y": 22
       },
       "id": 7,
       "options": {
@@ -727,7 +905,7 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 16
+        "y": 22
       },
       "id": 8,
       "options": {
@@ -775,10 +953,23 @@
     "from": "now-6h",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "10m",
+      "30m",
+      "1h",
+      "6h",
+      "12h",
+      "1d"
+    ]
+  },
   "timezone": "browser",
   "title": "Redirects API",
   "uid": "de6eovq7xe8lcc",
-  "version": 18,
+  "version": 25,
   "weekStart": ""
 }

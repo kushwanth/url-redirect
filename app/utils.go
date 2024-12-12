@@ -172,33 +172,15 @@ func getRequestFunction(path string, statusCode int) (string, bool) {
 	requestFunction := "unknown"
 	apiRegex := regexp.MustCompile(`^/redirector/([^/]+)(?:/[^/]+)?$`)
 	isApiRequest := apiRegex.MatchString(path)
-	if statusCode >= http.StatusMovedPermanently && statusCode <= http.StatusPermanentRedirect {
-		requestFunction = "redirect"
-	} else if statusCode == http.StatusNotFound {
-		requestFunction = "not_found"
-	} else if statusCode >= http.StatusOK && statusCode <= http.StatusAlreadyReported {
-		requestFunction = "success"
-	} else if statusCode == http.StatusBadRequest {
-		requestFunction = "bad_request"
-	} else if statusCode == http.StatusUnauthorized {
-		requestFunction = "unauthorized"
-	} else if statusCode == http.StatusForbidden {
-		requestFunction = "forbidden"
-	} else if statusCode == http.StatusMethodNotAllowed {
-		requestFunction = "method_not_allowed"
-	} else if statusCode == http.StatusPreconditionFailed {
-		requestFunction = "precondition_failed"
-	} else if statusCode == http.StatusInternalServerError {
-		requestFunction = "internal_error"
-	} else {
-		requestFunction = strconv.Itoa(statusCode)
+	httpStatusText := strings.ToLower(http.StatusText(statusCode))
+	requestFunction = strings.ReplaceAll(httpStatusText, " ", "_")
+	if statusCode == http.StatusFound || statusCode == http.StatusNotFound {
+		requestFunction = "redirect_" + requestFunction
 	}
 	if isApiRequest {
 		pathMatches := apiRegex.FindStringSubmatch(path)
 		if len(pathMatches) >= 2 && len(pathMatches[1]) > 0 {
 			requestFunction = strings.TrimSpace(pathMatches[1]) + "_" + requestFunction
-		} else {
-			requestFunction = "redirector_" + requestFunction
 		}
 	}
 	return requestFunction, isApiRequest

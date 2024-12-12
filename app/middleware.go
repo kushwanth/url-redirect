@@ -29,28 +29,20 @@ var totalRequests = prometheus.NewCounter(
 	},
 )
 
-var totalRequestsByPath = prometheus.NewCounterVec(
+var requestsByResponseStatus = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
-		Name: "http_requests_total_by_path",
-		Help: "Total requests by Path",
-	},
-	[]string{"path"},
-)
-
-var responseStatus = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "http_response_status",
-		Help: "Status of HTTP response",
+		Name: "requests_by_response_status",
+		Help: "Requests by response status",
 	},
 	[]string{"status"},
 )
 
-var httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-	Name:    "http_response_time_seconds",
-	Help:    "Duration of HTTP requests.",
-	Buckets: []float64{0.1, 0.5, 1, 5, 10},
+var httpStatusDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "http_response_status_time_ms",
+	Help:    "Duration of HTTP Requests in milliseconds and Response Status",
+	Buckets: []float64{0, 0.5, 1, 2, 5, 10},
 },
-	[]string{"function"},
+	[]string{"handler", "status"},
 )
 
 var activeRequestsGauge = prometheus.NewGauge(
@@ -62,20 +54,8 @@ var activeRequestsGauge = prometheus.NewGauge(
 
 var apiLatencySummary = prometheus.NewSummary(
 	prometheus.SummaryOpts{
-		Name: "api_request_duration_seconds",
+		Name: "api_request_duration",
 		Help: "Duration of API requests",
-		Objectives: map[float64]float64{
-			0.5:  0.05,
-			0.9:  0.01,
-			0.99: 0.001,
-		},
-	},
-)
-
-var redirectLatencySummary = prometheus.NewSummary(
-	prometheus.SummaryOpts{
-		Name: "redirect_duration_seconds",
-		Help: "Duration of redirecting requests",
 		Objectives: map[float64]float64{
 			0.5:  0.05,
 			0.9:  0.01,
@@ -109,12 +89,10 @@ func initRuntimeMetrics() {
 func initMetrics() {
 	initRuntimeMetrics()
 	metricsRegistry.MustRegister(totalRequests)
-	metricsRegistry.MustRegister(totalRequestsByPath)
-	metricsRegistry.MustRegister(responseStatus)
-	metricsRegistry.MustRegister(httpDuration)
+	metricsRegistry.MustRegister(requestsByResponseStatus)
+	metricsRegistry.MustRegister(httpStatusDuration)
 	metricsRegistry.MustRegister(activeRequestsGauge)
 	metricsRegistry.MustRegister(apiLatencySummary)
-	metricsRegistry.MustRegister(redirectLatencySummary)
 	for _, runtimeMetricsGuage := range runtimeMetricsGuages {
 		metricsRegistry.MustRegister(runtimeMetricsGuage)
 	}
@@ -163,29 +141,25 @@ func logRequest(db *pgxpool.Pool) func(http.Handler) http.Handler {
 
 func prometheusMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		startTime := time.Now()
 		activeRequestsGauge.Inc()
+		startTime := time.Now()
 		reqPath := r.URL.Path
 		appResWriter := &AppResponseWriter{ResponseWriter: w}
 		next.ServeHTTP(appResWriter, r)
-		endTime := time.Since(startTime).Seconds()
-		statusCode := appResWriter.Status()
-		activeRequestsGauge.Dec()
+		endTime := float64(time.Since(startTime).Milliseconds())
 		if !skipLogging(reqPath) {
-			responseStatus.WithLabelValues(strconv.Itoa(statusCode)).Inc()
 			totalRequests.Inc()
-			reqFunc, isApiReq := getRequestFunction(reqPath, statusCode)
-			totalRequestsByPath.WithLabelValues(reqFunc).Inc()
-			httpDuration.WithLabelValues(reqFunc).Observe(endTime)
+			statusCode := strconv.Itoa(appResWriter.Status())
+			requestsByResponseStatus.WithLabelValues(statusCode).Inc()
+			reqFunc, isApiReq := getRequestFunction(reqPath, appResWriter.Status())
+			httpStatusDuration.WithLabelValues(reqFunc, statusCode).Observe(endTime)
 			if isApiReq {
 				apiLatencySummary.Observe(endTime)
-			}
-			if statusCode == http.StatusFound || statusCode == http.StatusNotFound {
-				redirectLatencySummary.Observe(endTime)
 			}
 			for runtimeMetricKey, runtimeMetricValue := range getRuntimeMetrics() {
 				runtimeMetricsGuages[runtimeMetricKey].Set(runtimeMetricValue)
 			}
 		}
+		activeRequestsGauge.Dec()
 	})
 }

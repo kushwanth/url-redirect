@@ -73,10 +73,11 @@ func initRouter(dbpool *pgxpool.Pool) *chi.Mux {
 }
 
 func main() {
+	serverAddr := serverListenerAddress()
 	dbpool := initDB()
 	defer dbpool.Close()
 	initMetrics()
 	router := initRouter(dbpool)
-	log.Println("Sever running at Port 8082")
-	log.Fatalln(http.ListenAndServe("127.0.0.1:8082", router))
+	log.Println("Sever running at", serverAddr)
+	log.Fatalln(http.ListenAndServe(serverAddr, router))
 }

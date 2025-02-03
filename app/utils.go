@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -241,4 +242,17 @@ func getHttpRateLimit() int {
 	} else {
 		return 9
 	}
+}
+
+func serverListenerAddress() string {
+	addrHost := strings.TrimSpace(os.Getenv("HOST"))
+	addrPort := strings.TrimSpace(os.Getenv("PORT"))
+	addrPortNum, addrPortNumErr := strconv.Atoi(addrPort)
+	if net.ParseIP(addrHost) == nil {
+		addrHost = "127.0.0.1"
+	}
+	if addrPortNumErr != nil || !(addrPortNum > 1024 && addrPortNum < 65536) {
+		addrPort = "8082"
+	}
+	return net.JoinHostPort(addrHost, addrPort)
 }

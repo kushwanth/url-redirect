@@ -17,7 +17,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.23'  # Specify the Go version
+        go-version: '1.24'  # Specify the Go version
 
     - name: Checking GitHub Container Registry Log in
       run: echo "${{ secrets.CI_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin

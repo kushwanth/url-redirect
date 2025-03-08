@@ -63,6 +63,7 @@ func initRouter(dbpool *pgxpool.Pool) *chi.Mux {
 	apiRouter.Post("/check", redirectExists(dbpool))
 	apiRouter.Post("/stats", stats(dbpool))
 	router.Get("/*", handleRedirect(dbpool))
+	router.Get("/qr/*", getRedirectQRCode(dbpool))
 	router.Get("/notfound", notFound)
 	router.Get("/about", about)
 	router.NotFound(notFound)

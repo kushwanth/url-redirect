@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -209,7 +209,7 @@ func getRuntimeMetrics() map[string]float64 {
 		case metrics.KindBad:
 			panic("bug in runtime/metrics package!")
 		default:
-			fmt.Printf("%s: unexpected metric Kind: %v\n", name, value.Kind())
+			log.Printf("%s: unexpected metric Kind: %v\n", name, value.Kind())
 		}
 	}
 	return runtimeMetrics

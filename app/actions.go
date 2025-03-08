@@ -6,9 +6,11 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yeqown/go-qrcode"
 )
 
 func handleRedirect(db *pgxpool.Pool) http.HandlerFunc {
@@ -25,6 +27,34 @@ func handleRedirect(db *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		http.Redirect(w, r, buildUri(dbResponse.Url), http.StatusFound)
+	})
+}
+
+func getRedirectQRCode(db *pgxpool.Pool) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		shortPath := strings.ReplaceAll(r.URL.Path, "/qr", "")
+		validPath, isPathValid := validateAndFormatPath(shortPath)
+		if !isPathValid {
+			http.Error(w, notFoundMessage, http.StatusNotFound)
+			return
+		}
+		dbResponse, err := getRedirectUsingPath(validPath, db)
+		if err != nil || dbResponse.Id == 0 || (dbResponse.Id != 0 && dbResponse.Inactive) {
+			http.Error(w, notFoundMessage, http.StatusNotFound)
+			return
+		}
+		qrCode, qrErr := qrcode.New(buildUri(dbResponse.Url), qrcode.WithBorderWidth(32), qrcode.WithBuiltinImageEncoder(qrcode.PNG_FORMAT), qrcode.WithCircleShape(), qrcode.WithBorderWidth(29))
+		if qrErr != nil {
+			http.Error(w, internalError, http.StatusInternalServerError)
+			return
+		}
+		qrWtrErr := qrCode.SaveTo(w)
+		if qrWtrErr != nil {
+			http.Error(w, internalError, http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(http.StatusOK)
 	})
 }
 

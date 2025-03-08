@@ -22,10 +22,9 @@ func getStatus(*cli.Context) error {
 }
 
 func getUrlRedirect(cCtx *cli.Context) error {
-	idStr := cCtx.Args().Get(0)
-	id, idErr := strconv.Atoi(idStr)
-	if idErr != nil {
-		respondAndExit("Args Error", idErr)
+	id := cCtx.Value("id").(int)
+	if id < 0 {
+		respondAndExit("Args Error", id)
 	}
 	var redirectData Redirect
 	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "info/" + strconv.Itoa(id)
@@ -59,12 +58,12 @@ func addUrlRedirect(cCtx *cli.Context) error {
 }
 
 func updateUrlRedirect(cCtx *cli.Context) error {
-	idStr, path, uri := cCtx.Args().Get(0), cCtx.Args().Get(1), cCtx.Args().Get(2)
-	id, idErr := strconv.Atoi(idStr)
+	path, uri := cCtx.Args().Get(0), cCtx.Args().Get(1)
 	_, pathErr := url.Parse(path)
 	_, uriErr := url.Parse(uri)
-	if idErr != nil || pathErr != nil || uriErr != nil {
-		respondAndExit("Args Error", idErr, pathErr, uriErr)
+	id := cCtx.Value("id").(int)
+	if id < 0 || pathErr != nil || uriErr != nil {
+		respondAndExit("Args Error", id, pathErr, uriErr)
 	}
 	var redirectData Redirect
 	reqBody := Redirect{Id: id, Url: uri, Path: path, LastUpdated: time.Now().Format("YYYY-MM-DD hh:mm:ss"), Inactive: false}
@@ -100,10 +99,9 @@ func fixUrlRedirect(cCtx *cli.Context) error {
 }
 
 func disableUrlRedirect(cCtx *cli.Context) error {
-	idStr := cCtx.Args().Get(0)
-	id, idErr := strconv.Atoi(idStr)
-	if idErr != nil {
-		respondAndExit("Args Error", idErr)
+	id := cCtx.Value("id").(int)
+	if id < 0 {
+		respondAndExit("Args Error", id)
 	}
 	var redirectData Redirect
 	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "disable/" + strconv.Itoa(id)
@@ -117,12 +115,11 @@ func disableUrlRedirect(cCtx *cli.Context) error {
 }
 
 func listUrlRedirects(cCtx *cli.Context) error {
-	pageStr := cCtx.Args().Get(0)
-	page, pageErr := strconv.Atoi(pageStr)
-	if pageErr != nil {
-		page = 0
-	} else {
+	page := cCtx.Value("page").(int)
+	if page > 0 {
 		page = page * 10
+	} else {
+		page = 0
 	}
 	var redirectDataList []Redirect
 	endPoint := httpsProtocol + apiHost + redirectorApiEndpoint + "list?page=" + strconv.Itoa(page)
@@ -136,16 +133,16 @@ func listUrlRedirects(cCtx *cli.Context) error {
 }
 
 func searchUrlRedirect(cCtx *cli.Context) error {
-	path, pageStr := cCtx.Args().Get(0), cCtx.Args().Get(1)
-	page, pageErr := strconv.Atoi(pageStr)
+	path := cCtx.Args().Get(0)
+	page := cCtx.Value("page").(int)
 	_, pathErr := url.Parse(path)
 	if pathErr != nil {
 		respondAndExit("Args Error", pathErr)
 	}
-	if pageErr != nil {
-		page = 0
-	} else {
+	if page > 0 {
 		page = page * 10
+	} else {
+		page = 0
 	}
 	var redirectDataList []Redirect
 	reqBody := OpsData{Data: path}

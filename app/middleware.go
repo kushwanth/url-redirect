@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"log"
 	"net/http"
 	"net/textproto"
@@ -14,6 +15,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
+
+type AnalyticsLog struct {
+	Path              string
+	Status            int
+	ProcessingTime    int64
+	AdditionalHeaders string
+}
+
+var analyticsChan = make(chan AnalyticsLog, 1000)
 
 var metricsRegistry = prometheus.NewRegistry()
 
@@ -98,17 +108,29 @@ func initMetrics() {
 	}
 }
 
+func startAnalyticsWorker(db *pgxpool.Pool) {
+	go func() {
+		for logEntry := range analyticsChan {
+			_, err := db.Exec(context.Background(), `INSERT INTO UrlRedirects_Analytics (path, log_timestamp, status, processing_time, additional_headers) VALUES ($1,now(),$2,$3,$4)`, logEntry.Path, logEntry.Status, logEntry.ProcessingTime, logEntry.AdditionalHeaders)
+			if err != nil {
+				log.Println("Analytics Insert Error:", err)
+			}
+		}
+	}()
+}
+
 func httpRateLimit(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		httprate.Limit(getHttpRateLimit(), time.Second)
-		next.ServeHTTP(w, r)
-	})
+	return httprate.Limit(
+		getHttpRateLimit(),
+		time.Second,
+		httprate.WithKeyFuncs(httprate.KeyByIP),
+	)(next)
 }
 
 func verifyApiKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKeyHeader := r.Header.Get("x-url-redirect-token")
-		if apiKeyHeader != apiKey {
+		if subtle.ConstantTimeCompare([]byte(apiKeyHeader), []byte(apiKey)) != 1 {
 			http.Error(w, errorMessage, http.StatusUnauthorized)
 			return
 		}
@@ -130,9 +152,12 @@ func logRequest(db *pgxpool.Pool) func(http.Handler) http.Handler {
 				for i, logAdditionalHeader := range logAdditionalHeaders {
 					additionalHeaders[i] = r.Header.Get(textproto.CanonicalMIMEHeaderKey(logAdditionalHeader))
 				}
-				_, logReqDbErr := db.Exec(context.Background(), `INSERT INTO UrlRedirects_Analytics (path, log_timestamp, status, processing_time, additional_headers) VALUES ($1,now(),$2,$3,$4) RETURNING id`, reqPath, appResponse.Status(), processingTime, strings.Join(additionalHeaders, "|"))
-				if logReqDbErr != nil {
-					log.Println(logReqDbErr.Error())
+
+				analyticsChan <- AnalyticsLog{
+					Path:              reqPath,
+					Status:            appResponse.Status(),
+					ProcessingTime:    processingTime,
+					AdditionalHeaders: strings.Join(additionalHeaders, "|"),
 				}
 			}
 		})

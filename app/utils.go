@@ -14,8 +14,9 @@ import (
 	"strconv"
 	"strings"
 
+	"math/rand"
+
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/exp/rand"
 )
 
 var errorBytes []byte
@@ -53,7 +54,8 @@ const urlredirectSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects (
     url VARCHAR(100) NOT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT now(),
     inactive BOOLEAN NOT NULL DEFAULT FALSE
-);`
+);
+CREATE INDEX IF NOT EXISTS idx_urlredirects_url ON UrlRedirects(url);`
 
 const urlredirectAnalyticsSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects_Analytics (
   id SERIAL PRIMARY KEY,
@@ -62,7 +64,8 @@ const urlredirectAnalyticsSchema = `CREATE TABLE IF NOT EXISTS UrlRedirects_Anal
   status int NOT NULL,
   processing_time bigint,
   additional_headers text
-);`
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_timestamp ON UrlRedirects_Analytics(log_timestamp);`
 
 type Redirect struct {
 	Id          int    `json:"id,omitempty"`

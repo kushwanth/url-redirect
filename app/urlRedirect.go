@@ -5,6 +5,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -78,7 +81,32 @@ func main() {
 	dbpool := initDB()
 	defer dbpool.Close()
 	initMetrics()
+	startAnalyticsWorker(dbpool)
 	router := initRouter(dbpool)
-	log.Println("Sever running at", serverAddr)
-	log.Fatalln(http.ListenAndServe(serverAddr, router))
+
+	server := &http.Server{
+		Addr:         serverAddr,
+		Handler:      router,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	go func() {
+		log.Println("Sever running at", serverAddr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTP server error: %v", err)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
+	}
+	log.Println("Server stopped gracefully")
 }

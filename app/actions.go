@@ -121,7 +121,7 @@ func patchRedirect(db *pgxpool.Pool) http.HandlerFunc {
 			http.Error(w, notExistMessage, http.StatusPreconditionFailed)
 			return
 		}
-		db_err := db.QueryRow(context.Background(), "UPDATE UrlRedirects SET url=$1, updated_at=now(), inactive=$2 WHERE id=$3 RETURNING id, path, url, updated_at::TEXT, inactive, is_private", validUrl, false, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
+		db_err := db.QueryRow(context.Background(), "UPDATE UrlRedirects SET url=$1, updated_at=now(), inactive=$2 WHERE id=$3 RETURNING id, path, url, updated_at::TEXT, inactive", validUrl, false, dbResponse.Id).Scan(&responseData.Id, &responseData.Path, &responseData.Url, &responseData.LastUpdated, &responseData.Inactive)
 		if db_err != nil {
 			log.Println("patchRedirect -> ", db_err.Error())
 			http.Error(w, dbError, http.StatusInternalServerError)

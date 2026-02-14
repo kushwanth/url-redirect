@@ -163,7 +163,7 @@ func buildUri(url string) string {
 	return httpsProtocol + url
 }
 
-func toJson(data interface{}) []byte {
+func toJson(data any) []byte {
 	responseJson, err := json.Marshal(data)
 	if err != nil {
 		return errorBytes

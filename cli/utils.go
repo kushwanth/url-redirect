@@ -186,7 +186,7 @@ func respondAndExit(msg string, args ...any) {
 	defer os.Exit(1)
 }
 
-func toJson(struc interface{}) []byte {
+func toJson(struc any) []byte {
 	responseMessageJson, err := json.Marshal(struc)
 	if err != nil {
 		return errorBytes

@@ -15,7 +15,7 @@ var errorBytes []byte
 
 const httpsProtocol = "https://"
 const redirectorApiEndpoint = "/redirector/"
-const cliVersion = "3.2"
+const cliVersion = "3.3"
 
 const commandHelpText = `NAME: 
    {{.Name}} - {{.Usage}}
